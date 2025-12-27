@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aviasales: Final Release v37</title>
+    <style>
+        /* --- DESIGN TOKENS --- */
+        :root {
+            --brand-blue: #0C73FE;
+            --bg-color: #F2F3F5;
+            --surface-white: #FFFFFF;
+            --text-primary: #212121;
+            --text-secondary: #818C99;
+            --badge-green: #24A840;
+            --app-width: 402px; 
+            --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        /* Disable text selection */
+        .story-track, .story-overlay-top, .story-overlay-bottom, .story-page { user-select: none; }
+
+        body {
+            background-color: #333;
+            font-family: var(--font-family);
+            color: var(--text-primary);
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .app-container {
+            width: var(--app-width);
+            height: 874px;
+            background-color: var(--bg-color);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 0 10px #111, 0 20px 50px rgba(0,0,0,0.5);
+            border-radius: 40px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- SCREENS TRANSITIONS --- */
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; background: var(--bg-color);
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 10;
+        }
+        #screen-home { z-index: 10; }
+        #screen-picker { z-index: 20; transform: translateX(100%); background: white; }
+        #screen-details { z-index: 30; transform: translateX(100%); background: var(--surface-white); }
+        #screen-feed { z-index: 40; transform: translateX(100%); background: var(--bg-color); }
+        
+        #screen-story { 
+            z-index: 50; 
+            transform: translateY(100%); 
+            background: black; 
+            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .app-container.show-picker #screen-home { transform: translateX(-20%); filter: brightness(0.9); }
+        .app-container.show-picker #screen-picker { transform: translateX(0); }
+        
+        .app-container.show-details #screen-picker { transform: translateX(-20%); filter: brightness(0.9); }
+        .app-container.show-details #screen-details { transform: translateX(0); }
+
+        .app-container.show-feed #screen-details { transform: translateX(-20%); filter: brightness(0.9); }
+        .app-container.show-feed #screen-feed { transform: translateX(0); }
+
+        .app-container.show-story #screen-story { transform: translateY(0); }
+
+        /* --- COMMON UI --- */
+        .status-bar {
+            height: 44px; display: flex; justify-content: space-between; align-items: center; padding: 0 24px;
+            font-size: 15px; font-weight: 600; background: rgba(242, 243, 245, 0.8); backdrop-filter: blur(10px);
+            position: absolute; top: 0; width: 100%; z-index: 100; pointer-events: none;
+        }
+        .status-bar.dark { color: white; background: transparent; } 
+        .status-bar.dark svg { fill: white; }
+
+        .back-btn {
+            position: absolute; left: 16px; top: 50px; width: 40px; height: 40px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            color: var(--brand-blue); background: rgba(255,255,255,0.8); border-radius: 50%;
+            backdrop-filter: blur(4px); z-index: 60; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .back-btn.story-mode {
+            background: rgba(0,0,0,0.2); color: white; border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .cta-btn { background: var(--brand-blue); color: white; border: none; width: 100%; padding: 18px; border-radius: 16px; font-size: 17px; font-weight: 700; cursor: pointer; transition: transform 0.1s; display: flex; justify-content: center; align-items: center;}
+        .cta-btn:active { transform: scale(0.98); }
+        .cta-btn.gray { background: #F3F4F6; color: var(--text-primary); }
+
+        /* --- HOME SCREEN --- */
+        .header { text-align: center; padding: 60px 20px 20px; }
+        .header-icon-wrapper { width: 72px; height: 72px; background: white; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
+        .header-icon-inner { width: 56px; height: 56px; background: var(--brand-blue); border-radius: 50%; transform: rotate(45deg); display: flex; align-items: center; justify-content: center; color: white; }
+        .home-title { font-size: 28px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px; }
+        .header-subtitle { font-size: 16px; color: var(--text-secondary); line-height: 1.4; max-width: 300px; margin: 0 auto; }
+        .scroll-content { flex: 1; overflow-y: auto; padding-bottom: 100px; }
+        .scroll-content::-webkit-scrollbar { display: none; }
+        .banner-wrapper { margin: 0 16px 24px; cursor: pointer; border-radius: 24px; box-shadow: 0 12px 24px rgba(12, 115, 254, 0.25); height: 200px; overflow: hidden; background: linear-gradient(135deg, #0C73FE, #0056C7); position: relative; }
+        .full-banner-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .banner-fallback { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-weight: bold; text-align: center; width: 100%; display: none; }
+        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 16px; }
+        .card { background: white; border-radius: 16px; overflow: hidden; position: relative; box-shadow: 0 2px 10px rgba(0,0,0,0.03); display: flex; flex-direction: column; }
+        .card-image-wrap { height: 130px; position: relative; }
+        .card-img { width: 100%; height: 100%; object-fit: cover; }
+        .card-badge { position: absolute; top: 8px; left: 8px; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; color: white; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .badge-history { background: var(--badge-green); }
+        .badge-near { background: var(--brand-blue); }
+        .badge-date { background: rgba(33, 33, 33, 0.7); backdrop-filter: blur(4px); bottom: 8px; top: auto; left: 8px; }
+        .card-content { padding: 12px; }
+        .card-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+        .card-subtitle { font-size: 13px; color: var(--text-secondary); }
+        .tab-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 84px; background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); border-top: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-around; padding-top: 12px; z-index: 1000; padding-bottom: 24px; }
+        .tab-item { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--text-secondary); font-size: 10px; font-weight: 500; text-decoration: none; width: 60px; }
+        .tab-item.active { color: var(--brand-blue); }
+        .tab-icon { width: 24px; height: 24px; fill: currentColor; }
+        .camera-icon-bg { fill: currentColor; } .camera-icon-lens { fill: white; }
+
+        /* --- PICKER (SLIDER) --- */
+        .header-picker { height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 20px; z-index: 50; position: relative; background: white; }
+        .header-picker-title { font-size: 28px; font-weight: 800; margin-bottom: 2px; line-height: 1.1; letter-spacing: -0.5px; }
+        .header-city-select { font-size: 15px; color: var(--text-secondary); cursor: pointer; margin-top: 4px; padding-bottom: 4px; border-bottom: 1px solid rgba(129, 140, 153, 0.3); }
+
+        .picker-area { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        
+        .slider-wrapper {
+            position: relative;
+            width: 100%;
+            height: 380px; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 1000px;
+        }
+
+        .slide-card {
+            position: absolute;
+            width: 240px;
+            height: 360px;
+            border-radius: 24px;
+            background-size: cover;
+            background-position: center;
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: flex-end;
+            overflow: hidden;
+            will-change: transform, opacity;
+        }
+
+        .slide-card.active { z-index: 10; transform: translateX(0) scale(1); opacity: 1; border: 4px solid var(--brand-blue); }
+        .slide-card.prev { z-index: 5; transform: translateX(-160px) scale(0.85); opacity: 0.5; filter: grayscale(0.4); }
+        .slide-card.next { z-index: 5; transform: translateX(160px) scale(0.85); opacity: 0.5; filter: grayscale(0.4); }
+        .slide-card.hidden { z-index: 1; transform: scale(0.5); opacity: 0; pointer-events: none; }
+        
+        .slider-nav-btn {
+            position: absolute; top: 50%; transform: translateY(-50%); width: 56px; height: 56px;
+            background: rgba(255,255,255,0.85); backdrop-filter: blur(10px); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 20;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); color: #212121;
+        }
+        .slider-nav-btn.left { left: 24px; }
+        .slider-nav-btn.right { right: 24px; }
+
+        .category-label-new { margin-top: 10px; font-size: 24px; font-weight: 800; color: var(--text-primary); text-align: center; letter-spacing: -0.5px; min-height: 32px; }
+
+        .controls-panel { background: var(--surface-white); border-radius: 32px 32px 0 0; padding: 32px 24px 40px; box-shadow: 0 -10px 40px rgba(0,0,0,0.05); z-index: 200; position: relative; }
+        .slider-container { margin-bottom: 32px; text-align: center; }
+        .slider-label { font-size: 15px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; display: block; text-align: left; }
+        .slider-value-display { font-size: 20px; font-weight: 800; color: var(--brand-blue); margin-bottom: 16px; display: block; }
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 28px; width: 28px; border-radius: 50%; background: var(--surface-white); border: 2px solid var(--brand-blue); cursor: pointer; margin-top: -12px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #E0E0E0; border-radius: 2px; }
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; padding: 0 4px; }
+        .toggle-text-wrap { display: flex; align-items: center; gap: 8px; }
+        .toggle-label { font-size: 16px; font-weight: 600; }
+        .info-btn { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--text-secondary); color: var(--text-secondary); font-size: 12px; font-weight: 700; font-family: serif; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .toggle-switch { position: relative; display: inline-block; width: 50px; height: 30px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider-round { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #E0E0E0; transition: .4s; border-radius: 34px; }
+        .slider-round:before { position: absolute; content: ""; height: 26px; width: 26px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        input:checked + .slider-round { background-color: var(--badge-green); }
+        input:checked + .slider-round:before { transform: translateX(20px); }
+
+        /* --- DETAILS SCREEN --- */
+        .details-content { padding: 90px 20px 40px; overflow-y: auto; height: 100%; display: flex; flex-direction: column; }
+        .details-title { font-size: 32px; font-weight: 800; margin-bottom: 24px; margin-top: 10px; line-height: 1.1; }
+        .dates-row { display: flex; gap: 12px; margin-bottom: 32px; }
+        .date-btn { flex: 1; background: #F3F4F6; color: var(--text-primary); padding: 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
+        .date-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+        .date-value { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .section-label { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+        .section-sublabel { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+        .budget-value-big { font-size: 20px; font-weight: 800; color: var(--text-primary); }
+        .budget-chart { height: 80px; display: flex; align-items: flex-end; gap: 3px; margin-bottom: 10px; opacity: 0.6; padding: 0 4px; }
+        .bar { flex: 1; background: #E0E0E0; border-radius: 2px 2px 0 0; }
+        .bar.low { height: 20%; } .bar.mid-low { height: 40%; } .bar.mid { height: 70%; } .bar.high { height: 100%; }
+        .hotel-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; padding-top: 20px; border-top: 1px solid #E0E0E0; }
+        .hotel-label { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+        .stars-btn { display: flex; gap: 4px; cursor: pointer; background: #F3F4F6; padding: 6px 12px; border-radius: 8px; }
+        .star { color: var(--brand-blue); font-size: 16px; }
+        .star.empty { color: #D1D5DB; }
+        .buttons-column { display: flex; flex-direction: column; gap: 12px; margin-top: auto; padding-bottom: 20px; }
+
+        /* --- FEED SCREEN --- */
+        .feed-header { padding: 100px 20px 0; display: flex; justify-content: space-between; align-items: flex-start; background: rgba(242, 243, 245, 0.95); backdrop-filter: blur(10px); z-index: 50; position: sticky; top: 0; padding-bottom: 16px; }
+        .feed-title { font-size: 22px; font-weight: 800; width: 80%; line-height: 1.2; }
+        .filter-btn { width: 40px; height: 40px; border-radius: 50%; background: #E3F0FF; color: var(--brand-blue); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+        .tags-container { display: flex; gap: 8px; overflow-x: auto; padding: 10px 20px 20px; background: var(--bg-color); position: sticky; top: 140px; z-index: 45; }
+        .tags-container::-webkit-scrollbar { display: none; }
+        .tag-pill { background: white; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid transparent; cursor: pointer; }
+        .tag-pill.active { background: var(--brand-blue); color: white; }
+        .feed-content { padding: 0 16px 120px; flex: 1; overflow-y: auto; }
+        .feed-content::-webkit-scrollbar { display: none; }
+        .masonry-grid { column-count: 2; column-gap: 12px; }
+        .masonry-item { break-inside: avoid; margin-bottom: 12px; border-radius: 16px; overflow: hidden; background: transparent; position: relative; cursor: pointer; }
+        .m-card-img-wrap { position: relative; border-radius: 16px; overflow: hidden; background: white; }
+        .m-card-img { width: 100%; display: block; }
+        .m-price-badge { position: absolute; top: 8px; right: 8px; background: #FFFFFF; color: #212121; padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+        .m-city-name { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-top: 8px; margin-left: 4px; }
+        .m-city-desc { font-size: 12px; color: var(--text-secondary); margin-left: 4px; line-height: 1.3; margin-top: 2px; }
+
+        /* ===========================
+           SCREEN 5: STORIES (REELS)
+           =========================== */
+        #screen-story { z-index: 50; background: #000; }
+        .story-track-container { width: 100%; height: 100%; overflow: hidden; position: relative; }
+        .story-track { height: 300%; width: 100%; display: flex; flex-direction: column; transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+        .story-page { height: 100%; width: 100%; position: relative; background-size: cover; background-position: center; }
+        .story-indicators { position: absolute; top: 50px; left: 16px; right: 16px; display: flex; gap: 4px; z-index: 20; }
+        .indicator { height: 3px; flex: 1; background: rgba(255,255,255,0.3); border-radius: 2px; transition: background 0.1s; }
+        .indicator.active { background: white; }
+        
+        /* Updated Story Header Layout (Lifted by 30px from 140px to 110px) */
+        .story-overlay-top { 
+            position: absolute; top: 0; left: 0; width: 100%; padding: 110px 16px 20px; 
+            background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent); 
+            color: white; pointer-events: none; 
+            display: flex; flex-direction: column; align-items: flex-start; gap: 4px; 
+        }
+        .story-title { font-size: 32px; font-weight: 800; line-height: 1.1; text-shadow: 0 2px 10px rgba(0,0,0,0.5); order: 2; margin-top: 0;}
+        .story-badge { 
+            background: rgba(255,255,255,0.25); backdrop-filter: blur(8px); 
+            padding: 8px 16px; border-radius: 12px; font-size: 15px; font-weight: 800; 
+            display: inline-flex; align-items: center; gap: 6px; width: fit-content; 
+            order: 1; margin-bottom: 8px; margin-top: 20px;
+        }
+
+        .story-overlay-bottom { position: absolute; bottom: 0; left: 0; width: 100%; padding: 20px 20px 100px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); color: white; pointer-events: none; }
+        .story-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .s-tag { font-size: 12px; font-weight: 600; color: white; border: 1.5px solid rgba(255,255,255,0.8); background: rgba(0,0,0,0.1); padding: 6px 12px; border-radius: 50px; }
+        .story-desc { font-size: 15px; opacity: 0.95; line-height: 1.4; max-width: 90%; font-weight: 500; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+        .story-nav-left, .story-nav-right { position: absolute; top: 120px; bottom: 150px; width: 40%; z-index: 10; }
+        .story-nav-left { left: 0; } .story-nav-right { right: 0; }
+        
+        .story-like-btn { 
+            position: absolute; top: 40%; right: 16px; transform: translateY(-50%); 
+            width: 48px; height: 48px; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); 
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+            color: white; cursor: pointer; z-index: 30; border: 1px solid rgba(255,255,255,0.2); 
+            transition: all 0.2s;
+        }
+        .story-like-btn.liked { background: var(--brand-blue); border-color: var(--brand-blue); }
+        .story-controls { position: absolute; bottom: 30px; left: 16px; right: 16px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; z-index: 30; }
+        .ctrl-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; color: rgba(255,255,255,0.8); font-size: 9px; font-weight: 600; cursor: pointer; }
+        .ctrl-icon-wrap { width: 44px; height: 44px; border-radius: 14px; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; color: white; border: 1px solid rgba(255,255,255,0.1); }
+        .ctrl-btn.accent .ctrl-icon-wrap { background: var(--brand-blue); border: none; }
+
+        /* ONBOARDING HINT */
+        .story-hint-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 60; 
+            display: none; 
+            flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.6);
+            transition: opacity 0.3s;
+            pointer-events: none; /* Let clicks pass through to dismiss handler */
+        }
+        .story-hint-overlay.active { display: flex; }
+        .hint-content { display: flex; flex-direction: column; align-items: center; gap: 12px; color: white; animation: vertical-bounce 2s infinite; }
+        .hint-text { font-weight: 700; font-size: 17px; text-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        @keyframes vertical-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* --- SHEETS & MODALS (Reused) --- */
+        .sheet-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 500; display: none; opacity: 0; transition: opacity 0.3s; }
+        .sheet-overlay.active { display: block; opacity: 1; }
+        .bottom-sheet { position: absolute; bottom: 0; left: 0; width: 100%; background: white; border-radius: 24px 24px 0 0; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); padding: 24px; max-height: 85%; overflow-y: auto; }
+        .sheet-overlay.active .bottom-sheet { transform: translateY(0); }
+        .sheet-title { font-size: 20px; font-weight: 800; margin-bottom: 24px; text-align: center; }
+        .sheet-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .reset-btn { color: var(--text-secondary); font-size: 14px; font-weight: 500; cursor: pointer; }
+        .city-list { display: flex; flex-direction: column; gap: 8px; }
+        .city-item { padding: 12px; border-bottom: 1px solid #F2F3F5; font-size: 16px; display: flex; justify-content: space-between; cursor: pointer; }
+        .city-item.selected { color: var(--brand-blue); font-weight: 600; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; margin-bottom: 24px; }
+        .cal-day-name { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+        .cal-day { height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 15px; cursor: pointer; }
+        .cal-day.range { background: #E1EFFF; color: var(--text-primary); }
+        .cal-day.start { background: var(--brand-blue); color: white; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+        .cal-day.end { background: var(--brand-blue); color: white; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+        .month-title { font-size: 16px; font-weight: 700; margin: 16px 0 12px; text-align: left; }
+        .hotel-options { display: flex; flex-direction: column; gap: 12px; }
+        .hotel-opt { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #F2F3F5; cursor: pointer; }
+        .hotel-check { width: 20px; height: 20px; border: 2px solid #E0E0E0; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+        .hotel-opt.selected .hotel-check { background: var(--brand-blue); border-color: var(--brand-blue); }
+        .hotel-opt.selected .hotel-check::after { content: '✓'; color: white; font-size: 12px; }
+        .modal-overlay-info { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        .modal-overlay-info.active { display: flex; }
+        .modal-card { background: white; width: 340px; padding: 24px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; }
+        .modal-text { font-size: 15px; line-height: 1.5; color: var(--text-primary); margin-bottom: 24px; }
+        .modal-btn { background: var(--bg-color); color: var(--brand-blue); border: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; font-size: 15px; cursor: pointer; width: 100%; }
+
+        /* --- NEW/REFINED OVERLAY SCREENS FOR STORY BUTTONS --- */
+        .overlay-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color); z-index: 200;
+            display: flex; flex-direction: column;
+            transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .overlay-screen.active { transform: translateY(0); }
+        .os-header { padding: 50px 16px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+        .os-header.dark { background: #1D1D1F; color: white; }
+        .os-header.light { background: white; color: var(--text-primary); border-bottom: 1px solid #f0f0f0; }
+        .os-back { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .os-title-wrap { flex: 1; text-align: center; }
+        .os-title-main { font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .os-title-sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+        .round-filter-btn { width: 36px; height: 36px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .os-content { flex: 1; overflow-y: auto; padding-bottom: 100px; }
+        .os-fixed-btn-area { position: absolute; bottom: 0; left: 0; width: 100%; padding: 16px; z-index: 10; background: linear-gradient(to top, #131314, #131314 60%, transparent); }
+        .os-fixed-btn-area.light { background: white; border-top: 1px solid #eee; }
+        /* Flight Cards (Dark Theme) */
+        .flight-block { margin-bottom: 12px; cursor: pointer; }
+        .flight-block .fc-badge { background: #24A840; color: white; font-size: 11px; padding: 6px 10px; border-radius: 8px; font-weight: 700; width: fit-content; margin: 0 16px 8px; }
+        .flight-block .fc-badge.blue { background: var(--brand-blue); }
+        .fc-card-ref { background: #2C2C2E; color: white; border-radius: 16px; padding: 16px; }
+        .fcr-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+        .fcr-price { font-size: 24px; font-weight: 800; }
+        .fcr-heart { color: #818C99; }
+        .fcr-flight-row { display: flex; align-items: center; gap: 12px; }
+        .fcr-flight-row:not(:last-child) { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid #444; }
+        .fcr-airline-logo { width: 24px; height: 24px; border-radius: 50%; background: #555; display: flex; align-items: center; justify-content: center; }
+        .fcr-details { flex: 1; }
+        .fcr-date { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+        .fcr-time-route { font-size: 12px; color: #9E9E9E; }
+        
+        .price-graph-container {
+            margin: 0 16px 16px;
+            background: #2C2C2E;
+            border-radius: 16px;
+            padding: 16px;
+            color: white;
+        }
+        .pg-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #8E8E93;}
+        .pg-bars { display: flex; align-items: flex-end; justify-content: space-between; height: 60px; gap: 4px; }
+        .pg-bar { background: #48484A; border-radius: 4px 4px 0 0; width: 100%; position: relative; }
+        .pg-bar.active { background: var(--brand-blue); }
+        .pg-labels { display: flex; justify-content: space-between; margin-top: 8px; font-size: 10px; color: #8E8E93; }
+
+        /* Hotel Cards (Light Theme) */
+        .hotel-filters { display: flex; gap: 8px; overflow-x: auto; padding: 12px 16px; background: white; border-bottom: 1px solid #f0f0f0; flex-shrink: 0; }
+        .hotel-filters::-webkit-scrollbar { display: none; }
+        .h-filter-pill { background: #F3F4F6; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; }
+        .h-filter-pill.active { background: #333; color: white; }
+        .hotel-card-ref { background: white; border-radius: 16px; margin: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); cursor: pointer; }
+        .hcr-img-wrap { position: relative; height: 220px; }
+        .hcr-img { width: 100%; height: 100%; object-fit: cover; }
+        .hcr-heart { position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; background: rgba(0,0,0,0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; }
+        .hcr-content { padding: 16px; }
+        .hcr-info-line { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .hcr-title { font-size: 18px; font-weight: 700; }
+        .hcr-rating { font-weight: 700; font-size: 14px; color: var(--badge-green); }
+        .hcr-dist { font-size: 13px; color: var(--text-secondary); }
+        .hcr-price { font-size: 18px; font-weight: 700; }
+        .hcr-price span { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+        /* Details List (Light Theme) */
+        .details-list-header { font-size: 24px; font-weight: 800; padding: 20px 16px 10px; }
+        .detail-row { display: flex; align-items: center; gap: 16px; padding: 14px 16px; background: white; cursor: pointer; border-bottom: 1px solid #f2f3f5; }
+        .detail-icon { width: 44px; height: 44px; background: #f2f3f5; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+        .detail-text { flex: 1; }
+        .detail-title { font-size: 16px; font-weight: 600; margin-bottom: 2px; }
+        .detail-sub { font-size: 13px; color: var(--text-secondary); line-height: 1.3; }
+        /* Map Screen */
+        .map-container { position: relative; width: 100%; height: 100%; background: #212121; overflow: hidden; }
+        .map-filters-wrap { position: absolute; top: 100px; left: 0; width: 100%; z-index: 5; display: flex; justify-content: center; }
+        .map-filters { display: flex; gap: 8px; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); padding: 8px; border-radius: 12px; overflow-x: auto; max-width: 95%; white-space: nowrap; }
+        .map-filters::-webkit-scrollbar { display: none; }
+        .map-filter-pill { color: white; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+        .map-filter-pill.active { background: var(--brand-blue); }
+        .map-bg { width: 100%; height: 100%; border: 0; filter: invert(90%) hue-rotate(180deg) contrast(90%); }
+        .map-pin { position: absolute; width: 44px; height: 44px; border-radius: 12px; border: 2px solid white; overflow: hidden; cursor: pointer; transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 10; }
+        .map-pin img { width: 100%; height: 100%; object-fit: cover; }
+        .map-pin.active-zoom { width: 320px; height: 320px; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%); z-index: 100; border-radius: 20px; border: 4px solid white; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        /* Map Pin Description Bar */
+        .map-pin-desc-bar {
+            position: absolute; bottom: 20px; left: 16px; right: 16px;
+            background: white; border-radius: 16px; padding: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            z-index: 120; display: none;
+            flex-direction: column; gap: 4px;
+            animation: slide-up 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .map-pin-desc-bar.active { display: flex; }
+        @keyframes slide-up { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        /* Success Popup */
+        .success-popup { position: absolute; top: 0; left:0; width: 100%; height: 100%; z-index: 1000; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+        .success-popup.active { display: flex; }
+        .sp-card { width: 320px; background: white; border-radius: 24px; padding: 32px 24px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+        .sp-icon { width: 64px; height: 64px; background: #E1EFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--brand-blue); margin-bottom: 16px; }
+        .sp-text { font-size: 16px; font-weight: 600; margin-bottom: 24px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+<div id="app" class="app-container">
+    <div class="status-bar" id="statusBar">
+        <span style="color:#000">14:36</span>
+        <div style="display:flex; gap:6px;">
+            <svg width="18" height="12" viewBox="0 0 24 14" fill="black"><path d="M20,4h-2V2h-2v2H2C0.9,4,0,4.9,0,6v2c0,1.1,0.9,2,2,2h16v2h2v-2h2c1.1,0,2-0.9,2-2V6C24,4.9,23.1,4,22,4z"/></svg>
+            <div style="width:24px; height:12px; background:#000; border-radius:4px;"></div>
+        </div>
+    </div>
+
+    <!-- SCREEN 1: HOME -->
+    <div id="screen-home" class="screen">
+        <div class="scroll-content">
+            <div class="header">
+                <div class="header-icon-wrapper"><div class="header-icon-inner"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="none"><path class="camera-icon-bg" fill="white" d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle class="camera-icon-lens" fill="#0C73FE" cx="12" cy="13" r="5"></circle></svg></div></div>
+                <h1 class="home-title">Куда поедем?</h1>
+                <p class="header-subtitle">Что посмотреть, где поесть и чем заняться по всему миру</p>
+            </div>
+            <div class="banner-wrapper" onclick="openPicker()">
+                <div class="banner-fallback">Если banner.png не загрузился, нажми сюда</div>
+                <img src="banner.png" class="full-banner-img" onerror="this.style.display='none'; this.previousElementSibling.style.display='block';">
+            </div>
+            <div class="grid-container">
+                <div class="card"><div class="card-image-wrap"><img src="https://images.pexels.com/photos/9136656/pexels-photo-9136656.jpeg?auto=compress&cs=tinysrgb&w=400" class="card-img"><div class="card-badge badge-history">Вы смотрели</div></div><div class="card-content"><div class="card-title">Краснодарский край</div><div class="card-subtitle">Россия</div></div></div>
+                <div class="card"><div class="card-image-wrap"><img src="https://images.pexels.com/photos/3223554/pexels-photo-3223554.jpeg?auto=compress&cs=tinysrgb&w=400" class="card-img"><div class="card-badge badge-near">Рядом с вами</div></div><div class="card-content"><div class="card-title">Стамбул</div><div class="card-subtitle">Турция</div></div></div>
+                <div class="card"><div class="card-image-wrap"><img src="https://images.pexels.com/photos/460672/pexels-photo-460672.jpeg?auto=compress&cs=tinysrgb&w=400" class="card-img"></div><div class="card-content"><div class="card-title">Лондон</div><div class="card-subtitle">Великобритания</div></div></div>
+                <div class="card"><div class="card-image-wrap"><img src="https://images.pexels.com/photos/208218/pexels-photo-208218.jpeg?auto=compress&cs=tinysrgb&w=400" class="card-img"></div><div class="card-content"><div class="card-title">Париж</div><div class="card-subtitle">Франция</div></div></div>
+                <div class="card"><div class="card-image-wrap"><img src="https://images.pexels.com/photos/1682691/pexels-photo-1682691.jpeg?auto=compress&cs=tinysrgb&w=400" class="card-img"><div class="card-badge badge-date">✈ 3 февраля</div></div><div class="card-content"><div class="card-title">Бангкок</div><div class="card-subtitle">Таиланд</div></div></div>
+                <div class="card"><div class="card-image-wrap"><img src="https://images.pexels.com/photos/3052028/pexels-photo-3052028.jpeg?auto=compress&cs=tinysrgb&w=400" class="card-img"></div><div class="card-content"><div class="card-title">Москва</div><div class="card-subtitle">Россия</div></div></div>
+            </div>
+        </div>
+        <!-- Tab Bar -->
+        <div class="tab-bar">
+            <a href="#" class="tab-item"><svg class="tab-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.5604 3.9101C21.1504 4.5001 21.1504 5.4501 20.5604 6.0301L16.6704 9.9201L18.7904 19.1101L17.3804 20.5301L13.5004 13.1001L9.60043 17.0001L9.96043 19.4701L8.89043 20.5301L7.13043 17.3501L3.94043 15.5801L5.00043 14.5001L7.50043 14.8701L11.3704 11.0001L3.94043 7.0901L5.36043 5.6801L14.5504 7.8001L18.4404 3.9101C19.0004 3.3301 20.0004 3.3301 20.5604 3.9101Z" fill="currentColor"/></svg>Авиабилеты</a>
+            <a href="#" class="tab-item"><svg class="tab-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 1C0 0.446875 0.446875 0 1 0H15C15.5531 0 16 0.446875 16 1C16 1.55313 15.5531 2 15 2V14C15.5531 14 16 14.4469 16 15C16 15.5531 15.5531 16 15 16H9.5V14.5C9.5 13.6719 8.82812 13 8 13C7.17188 13 6.5 13.6719 6.5 14.5V16H1C0.446875 16 0 15.5531 0 15C0 14.4469 0.446875 14 1 14V2C0.446875 2 0 1.55313 0 1ZM3 3.5V4.5C3 4.775 3.225 5 3.5 5H4.5C4.775 5 5 4.775 5 4.5V3.5C5 3.225 4.775 3 4.5 3H3.5C3.225 3 3 3.225 3 3.5ZM7.5 3C7.225 3 7 3.225 7 3.5V4.5C7 4.775 7.225 5 7.5 5H8.5C8.775 5 9 4.775 9 4.5V3.5C9 3.225 8.775 3 8.5 3H7.5ZM11 3.5V4.5C11 4.775 11.225 5 11.5 5H12.5C12.775 5 13 4.775 13 4.5V3.5C13 3.225 12.775 3 12.5 3H11.5C11.225 3 11 3.225 11 3.5ZM3.5 6C3.225 6 3 6.225 3 6.5V7.5C3 7.775 3.225 8 3.5 8H4.5C4.775 8 5 7.775 5 7.5V6.5C5 6.225 4.775 6 4.5 6H3.5ZM7 6.5V7.5C7 7.775 7.225 8 7.5 8H8.5C8.775 8 9 7.775 9 7.5V6.5C9 6.225 8.775 6 8.5 6H7.5C7.225 6 7 6.225 7 6.5ZM11.5 6C11.225 6 11 6.225 11 6.5V7.5C11 7.775 11.225 8 11.5 8H12.5C12.775 8 13 7.775 13 7.5V6.5C13 6.225 12.775 6 12.5 6H11.5ZM10.25 12C10.6656 12 11.0094 11.6594 10.9062 11.2563C10.575 9.95938 9.4 9 8 9C6.6 9 5.42188 9.95938 5.09375 11.2563C4.99063 11.6563 5.3375 12 5.75 12H10.25Z" fill="currentColor"/></svg>Отели</a>
+            <a href="#" class="tab-item active"><svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/><circle cx="12" cy="9" r="1.5" fill="white"/></svg>Впечатления</a>
+            <a href="#" class="tab-item"><svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>Избранное</a>
+            <a href="#" class="tab-item"><svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>Профиль</a>
+        </div>
+    </div>
+
+    <!-- SCREEN 2: PICKER (SLIDER) -->
+    <div id="screen-picker" class="screen">
+        <div class="header-picker">
+            <div class="back-btn" onclick="closePicker()" style="top:50px; left:24px; box-shadow:none; background:#F2F3F5; color:#212121; width:44px; height:44px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+            <div class="header-picker-title">Куда поедем?</div>
+            <div class="header-city-select" id="headerCityPicker" onclick="openSheet('citySheet')">Вылет из <u>Москвы</u></div>
+        </div>
+        <div class="picker-area">
+            <div class="slider-wrapper" id="sliderWrapper"></div>
+            <div class="category-label-new" id="categoryLabel">По России</div>
+        </div>
+        <div class="controls-panel">
+            <div class="slider-container">
+                <label class="slider-label">На сколько едем?</label>
+                <span class="slider-value-display" id="durationText">На пару дней</span>
+                <input type="range" min="1" max="30" value="2" id="durationSlider">
+            </div>
+            <div class="toggle-row">
+                <div class="toggle-text-wrap">
+                    <span class="toggle-label" id="visaLabel">Только без виз</span>
+                    <div class="info-btn" onclick="openInfoModal()">i</div>
+                </div>
+                <label class="toggle-switch"><input type="checkbox" id="visaToggle" checked onchange="toggleVisaText()"><span class="slider-round"></span></label>
+            </div>
+            <button class="cta-btn" onclick="openDetails()">Подобрать направление</button>
+        </div>
+    </div>
+
+    <!-- SCREEN 3: DETAILS -->
+    <div id="screen-details" class="screen">
+        <div class="back-btn" onclick="closeDetails()" style="top:50px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="details-content">
+            <h1 class="details-title">А можно<br>поподробнее?</h1>
+            <div class="dates-row">
+                <div class="date-btn" onclick="openCalendar('dep')"><span class="date-label">Туда</span><span class="date-value" id="dateStartDisplay">Не важно</span></div>
+                <div class="date-btn" onclick="openCalendar('ret')"><span class="date-label">Обратно</span><span class="date-value" id="dateEndDisplay">Не важно</span></div>
+            </div>
+            <div class="section-label">Бюджет</div>
+            <div class="section-sublabel"><span>На неделю, на одного</span><span class="budget-value-big" id="budgetValue">10 000 ₽ – 150 000 ₽</span></div>
+            <div class="budget-chart"><div class="bar low"></div><div class="bar low"></div><div class="bar mid-low"></div><div class="bar mid-low"></div><div class="bar mid"></div><div class="bar high"></div><div class="bar high"></div><div class="bar high"></div><div class="bar mid"></div><div class="bar mid"></div><div class="bar mid-low"></div><div class="bar mid-low"></div><div class="bar low"></div><div class="bar low"></div><div class="bar low"></div></div>
+            <input type="range" min="10000" max="500000" value="150000" step="5000" id="budgetSlider" style="margin-bottom: 32px;">
+            <div class="toggle-row" style="margin-bottom:12px;"><span class="toggle-label">Включить отели</span><label class="toggle-switch"><input type="checkbox" id="hotelToggle"><span class="slider-round"></span></label></div>
+            <div class="hotel-row" onclick="openSheet('hotelSheet')"><div class="hotel-label" id="hotelLabelDisplay">Категория отеля</div><div class="stars-btn" id="starsContainer"><span class="star">★</span><span class="star empty">★</span><span class="star empty">★</span></div></div>
+            <div class="buttons-column">
+                <button class="cta-btn" onclick="openFeed()">Поехали</button>
+                <button class="cta-btn gray" onclick="openFeed()">Пока пропустим</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 4: FEED -->
+    <div id="screen-feed" class="screen">
+        <div class="back-btn" onclick="closeFeed()" style="top:50px; left:16px; z-index:60;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="feed-header">
+            <div class="feed-title" id="feedTitle">По России</div>
+            <div class="filter-btn" onclick="openSheet('feedFilterSheet')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+            </div>
+        </div>
+        <div class="tags-container" id="tagsList"></div>
+        <div class="feed-content"><div class="masonry-grid" id="feedGrid"></div></div>
+    </div>
+
+    <!-- SCREEN 5: STORIES -->
+    <div id="screen-story" class="screen">
+        <div class="back-btn story-mode" onclick="closeStory()"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        <div class="story-like-btn" onclick="toggleLike(this)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></div>
+        
+        <!-- ONBOARDING HINT -->
+        <div id="story-hint" class="story-hint-overlay">
+            <div class="hint-content">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4.025 20.5C3.04167 19.3 2.29167 17.975 1.775 16.525C1.25833 15.075 1 13.5667 1 12C1 10.4333 1.25833 8.925 1.775 7.475C2.29167 6.025 3.04167 4.7 4.025 3.5H2.75C2.53333 3.5 2.35433 3.429 2.213 3.287C2.07167 3.145 2.00067 2.966 2 2.75C1.99933 2.534 2.07033 2.355 2.213 2.213C2.35567 2.071 2.53467 2 2.75 2H6C6.28333 2 6.521 2.096 6.713 2.288C6.905 2.48 7.00067 2.71733 7 3V6.25C7 6.46667 6.929 6.646 6.787 6.788C6.645 6.93 6.466 7.00067 6.25 7C6.034 6.99933 5.855 6.92833 5.713 6.787C5.571 6.64567 5.5 6.46667 5.5 6.25V4.1C4.53333 5.2 3.79167 6.425 3.275 7.775C2.75833 9.125 2.5 10.5333 2.5 12C2.5 13.4667 2.75833 14.875 3.275 16.225C3.79167 17.575 4.53333 18.8 5.5 19.9V17.75C5.5 17.5333 5.571 17.3543 5.713 17.213C5.855 17.0717 6.034 17.0007 6.25 17C6.466 16.9993 6.64533 17.0703 6.788 17.213C6.93067 17.3557 7.00133 17.5347 7 17.75V21C7 21.2833 6.904 21.521 6.712 21.713C6.52 21.905 6.28267 22.0007 6 22H2.75C2.53333 22 2.35433 21.929 2.213 21.787C2.07167 21.645 2.00067 21.466 2 21.25C1.99933 21.034 2.07033 20.855 2.213 20.713C2.35567 20.571 2.53467 20.5 2.75 20.5H4.025ZM16.45 20.825C16.0667 20.9583 15.6793 21.021 15.288 21.013C14.8967 21.005 14.5173 20.909 14.15 20.725L8.5 18.1C8.25 17.9833 8.075 17.796 7.975 17.538C7.875 17.28 7.88333 17.0257 8 16.775L8.05 16.675C8.21667 16.3417 8.45 16.071 8.75 15.863C9.05 15.655 9.38333 15.534 9.75 15.5L11.45 15.375L8.65 7.7C8.55 7.43333 8.55833 7.179 8.675 6.937C8.79167 6.695 8.98333 6.52433 9.25 6.425C9.51667 6.32567 9.77067 6.334 10.012 6.45C10.2533 6.566 10.4243 6.75767 10.525 7.025L13.775 15.95C13.8917 16.2667 13.8583 16.5627 13.675 16.838C13.4917 17.1133 13.2333 17.2673 12.9 17.3L11.725 17.375L15 18.9C15.1167 18.95 15.2417 18.9793 15.375 18.988C15.5083 18.9967 15.6333 18.984 15.75 18.95L19.675 17.525C20.1917 17.3417 20.5667 16.9957 20.8 16.487C21.0333 15.9783 21.0583 15.466 20.875 14.95L19.5 11.2C19.4 10.9333 19.4083 10.679 19.525 10.437C19.6417 10.195 19.8333 10.0243 20.1 9.925C20.3667 9.82567 20.6207 9.834 20.862 9.95C21.1033 10.066 21.2743 10.2577 21.375 10.525L22.75 14.275C23.1333 15.325 23.0957 16.3457 22.637 17.337C22.1783 18.3283 21.4243 19.016 20.375 19.4L16.45 20.825ZM12.85 10.425C12.75 10.1583 12.7583 9.904 12.875 9.662C12.9917 9.42 13.1833 9.24933 13.45 9.15C13.7167 9.05067 13.971 9.059 14.213 9.175C14.455 9.291 14.6257 9.48267 14.725 9.75L15.75 12.55C15.85 12.8167 15.8417 13.075 15.725 13.325C15.6083 13.575 15.4167 13.75 15.15 13.85C14.8833 13.95 14.625 13.9417 14.375 13.825C14.125 13.7083 13.95 13.5167 13.85 13.25L12.85 10.425ZM16 10.35C15.9 10.0833 15.9083 9.82933 16.025 9.588C16.1417 9.34667 16.3333 9.17567 16.6 9.075C16.8667 8.97433 17.1207 8.98267 17.362 9.1C17.6033 9.21733 17.7743 9.409 17.875 9.675L18.55 11.55C18.65 11.8167 18.6457 12.071 18.537 12.313C18.4283 12.555 18.241 12.7257 17.975 12.825C17.709 12.9243 17.4507 12.916 17.2 12.8C16.9493 12.684 16.7743 12.4923 16.675 12.225L16 10.35Z" fill="white"/></svg>
+                <div class="hint-text">Больше вариантов</div>
+            </div>
+        </div>
+
+        <div class="story-track-container" id="storyTrackContainer"><div class="story-track" id="storyTrack" style="height: 300%; display: flex; flex-direction: column;"></div>
+            <div class="story-controls">
+                <div class="ctrl-btn" onclick="openTicketsSheet()"><div class="ctrl-icon-wrap"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.5604 3.9101C21.1504 4.5001 21.1504 5.4501 20.5604 6.0301L16.6704 9.9201L18.7904 19.1101L17.3804 20.5301L13.5004 13.1001L9.60043 17.0001L9.96043 19.4701L8.89043 20.5301L7.13043 17.3501L3.94043 15.5801L5.00043 14.5001L7.50043 14.8701L11.3704 11.0001L3.94043 7.0901L5.36043 5.6801L14.5504 7.8001L18.4404 3.9101C19.0004 3.3301 20.0004 3.3301 20.5604 3.9101Z" fill="white"/></svg></div>Билеты</div>
+                <div class="ctrl-btn" onclick="openHotelsSheet()"><div class="ctrl-icon-wrap"><svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 1C0 0.446875 0.446875 0 1 0H15C15.5531 0 16 0.446875 16 1C16 1.55313 15.5531 2 15 2V14C15.5531 14 16 14.4469 16 15C16 15.5531 15.5531 16 15 16H9.5V14.5C9.5 13.6719 8.82812 13 8 13C7.17188 13 6.5 13.6719 6.5 14.5V16H1C0.446875 16 0 15.5531 0 15C0 14.4469 0.446875 14 1 14V2C0.446875 2 0 1.55313 0 1ZM3 3.5V4.5C3 4.775 3.225 5 3.5 5H4.5C4.775 5 5 4.775 5 4.5V3.5C5 3.225 4.775 3 4.5 3H3.5C3.225 3 3 3.225 3 3.5ZM7.5 3C7.225 3 7 3.225 7 3.5V4.5C7 4.775 7.225 5 7.5 5H8.5C8.775 5 9 4.775 9 4.5V3.5C9 3.225 8.775 3 8.5 3H7.5ZM11 3.5V4.5C11 4.775 11.225 5 11.5 5H12.5C12.775 5 13 4.775 13 4.5V3.5C13 3.225 12.775 3 12.5 3H11.5C11.225 3 11 3.225 11 3.5ZM3.5 6C3.225 6 3 6.225 3 6.5V7.5C3 7.775 3.225 8 3.5 8H4.5C4.775 8 5 7.775 5 7.5V6.5C5 6.225 4.775 6 4.5 6H3.5ZM7 6.5V7.5C7 7.775 7.225 8 7.5 8H8.5C8.775 8 9 7.775 9 7.5V6.5C9 6.225 8.775 6 8.5 6H7.5C7.225 6 7 6.225 7 6.5ZM11.5 6C11.225 6 11 6.225 11 6.5V7.5C11 7.775 11.225 8 11.5 8H12.5C12.775 8 13 7.775 13 7.5V6.5C13 6.225 12.775 6 12.5 6H11.5ZM10.25 12C10.6656 12 11.0094 11.6594 10.9062 11.2563C10.575 9.95938 9.4 9 8 9C6.6 9 5.42188 9.95938 5.09375 11.2563C4.99063 11.6563 5.3375 12 5.75 12H10.25Z" fill="white"/></svg></div>Отель</div>
+                <div class="ctrl-btn" onclick="openDetailsSheet()"><div class="ctrl-icon-wrap"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></div>Детали</div>
+                <div class="ctrl-btn" onclick="openMapSheet()"><div class="ctrl-icon-wrap"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg></div>На карте</div>
+                <div class="ctrl-btn accent" onclick="openSuccessPlan(true)"><div class="ctrl-icon-wrap"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div>Запланировать</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SHEETS & MODALS (Reused) -->
+    <div id="citySheet" class="sheet-overlay" onclick="closeSheet('citySheet')"><div class="bottom-sheet" onclick="event.stopPropagation()"><div class="sheet-title">Откуда летим?</div><div class="city-list"><div class="city-item selected" onclick="selectCity('Москва')">Москва <span>✓</span></div><div class="city-item" onclick="selectCity('Санкт-Петербург')">Санкт-Петербург</div><div class="city-item" onclick="selectCity('Сочи')">Сочи</div><div class="city-item" onclick="selectCity('Казань')">Казань</div><div class="city-item" onclick="selectCity('Екатеринбург')">Екатеринбург</div></div></div></div>
+    <div id="calendarSheet" class="sheet-overlay" onclick="closeSheet('calendarSheet')"><div class="bottom-sheet" style="height: 600px;" onclick="event.stopPropagation()"><div class="sheet-title">Период <span id="calTypeTitle">вылета</span></div><div class="month-title">Январь 2026</div><div class="calendar-grid" id="calendarGrid"></div><button class="cta-btn" onclick="saveDates()">Готово</button></div></div>
+    <div id="hotelSheet" class="sheet-overlay" onclick="closeSheet('hotelSheet')"><div class="bottom-sheet" onclick="event.stopPropagation()"><div class="sheet-title">Категория отеля</div><div class="hotel-options"><div class="hotel-opt selected" onclick="selectHotel(1, 'Эконом (до 5к)')"><span>Эконом (до 5к)</span> <div class="hotel-check"></div></div><div class="hotel-opt" onclick="selectHotel(2, 'Комфорт (до 10к)')"><span>Комфорт (до 10к)</span> <div class="hotel-check"></div></div><div class="hotel-opt" onclick="selectHotel(3, 'Экстра (до 20к)')"><span>Экстра (до 20к)</span> <div class="hotel-check"></div></div><div class="hotel-opt" onclick="selectHotel(4, 'Редкая жемчужина')"><span>Редкая жемчужина</span> <div class="hotel-check"></div></div><div class="hotel-opt" onclick="selectHotel(5, 'Не важно')"><span>Не важно</span> <div class="hotel-check"></div></div></div><button class="cta-btn" style="margin-top:20px" onclick="closeSheet('hotelSheet')">Хорошо</button></div></div>
+    <div id="feedFilterSheet" class="sheet-overlay" onclick="closeSheet('feedFilterSheet')"><div class="bottom-sheet" style="max-height: 90%;" onclick="event.stopPropagation()"><div class="sheet-header-row"><div class="sheet-title" style="margin:0; text-align:left;">Фильтры</div><div class="reset-btn">Сбросить</div></div><div style="margin-bottom: 24px;"><div class="section-label">Даты</div><div class="date-picker-btn" style="margin-bottom:0;" onclick="openSheet('calendarSheet')"><span class="date-value">7 - 14 Января</span></div></div><div style="margin-bottom: 24px;"><div class="section-label">Бюджет</div><div class="section-sublabel"><span>На неделю, на одного</span><span style="font-weight:700">150 000 ₽</span></div><input type="range" min="10000" max="500000" value="150000" style="width:100%"></div><div class="toggle-row"><span class="toggle-label">Виза не нужна</span><label class="toggle-switch"><input type="checkbox" checked><span class="slider-round"></span></label></div><div class="toggle-row"><span class="toggle-label">Включить отели</span><label class="toggle-switch"><input type="checkbox" id="feedHotelToggle" onchange="toggleHotelGlobal(this.checked)"><span class="slider-round"></span></label></div><button class="cta-btn" onclick="closeSheet('feedFilterSheet')">Сохранить</button></div></div>
+    <div class="modal-overlay-info" id="infoModal" onclick="closeInfoModal()"><div class="modal-card" onclick="event.stopPropagation()"><div class="modal-text">Мы покажем все варианты поездок без виз или с простой визой по прилету. <br><br>Правила въезда могут поменяться.</div><button class="modal-btn" onclick="closeInfoModal()">Понятно</button></div></div>
+
+    <!-- NEW: TICKETS SHEET -->
+    <div id="sheet-tickets" class="overlay-screen">
+        <div class="os-header dark">
+            <div class="os-back" onclick="closeOverlay('sheet-tickets')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+            <div class="os-title-wrap"><div class="os-title-main">Москва <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2"><path d="M21 16.5l-4-4m4 4l-4 4m-13-8.5l4 4m-4-4l4-4"/></svg> Владивосток</div><div class="os-title-sub">14–17 янв, 1, эконом</div></div>
+            <div class="round-filter-btn" onclick="openSheet('ticketFilterSub')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg></div>
+        </div>
+        
+        <div class="hotel-filters" style="background:#1D1D1F; border-bottom:1px solid #333;">
+            <div class="h-filter-pill active">Лучшая цена</div>
+            <div class="h-filter-pill" style="background:#333; color:white;">Без пересадок</div>
+            <div class="h-filter-pill" style="background:#333; color:white;">Багаж</div>
+            <div class="h-filter-pill" style="background:#333; color:white;">Аэрофлот</div>
+        </div>
+
+        <div class="os-content" style="background:#131314; padding:16px 0;">
+            <div class="price-graph-container">
+                <div class="pg-title">Цены на ближайшие дни</div>
+                <div class="pg-bars">
+                    <div class="pg-bar" style="height:40%"></div><div class="pg-bar" style="height:60%"></div><div class="pg-bar active" style="height:30%"></div><div class="pg-bar" style="height:80%"></div><div class="pg-bar" style="height:50%"></div><div class="pg-bar" style="height:70%"></div><div class="pg-bar" style="height:45%"></div>
+                </div>
+                <div class="pg-labels"><span>14 янв</span><span>15 янв</span><span>16 янв</span><span>17 янв</span><span>18 янв</span><span>19 янв</span><span>20 янв</span></div>
+            </div>
+
+            <div class="flight-block" onclick="openSuccessTicket()">
+                 <div class="fc-badge">Самый дешёвый</div>
+                 <div class="fc-card-ref" style="margin:0 16px;">
+                     <div class="fcr-top"><div class="fcr-price">27 280 ₽</div><div class="fcr-heart"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></div></div>
+                     <div class="fcr-flight-row"><div class="fcr-airline-logo">✈️</div><div class="fcr-details"><div class="fcr-date">16 янв, пт</div><div class="fcr-time-route">15:50 – 07:35 · 9ч в пути / Прямой</div></div></div>
+                     <div class="fcr-flight-row"><div class="fcr-airline-logo">✈️</div><div class="fcr-details"><div class="fcr-date">23 янв, пт</div><div class="fcr-time-route">09:20 – 11:55 · 10ч в пути / Прямой</div></div></div>
+                 </div>
+            </div>
+            <div class="flight-block" onclick="openSuccessTicket()">
+                 <div class="fc-badge blue">Оптимальный</div>
+                 <div class="fc-card-ref" style="margin:0 16px;">
+                    <div class="fcr-top"><div class="fcr-price">36 149 ₽</div><div class="fcr-heart"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></div></div>
+                    <div class="fcr-flight-row"><div class="fcr-airline-logo">✈️</div><div class="fcr-details"><div class="fcr-date">15 янв, чт</div><div class="fcr-time-route">21:55 – 16:25 · 12ч в пути / Прямой</div></div></div>
+                    <div class="fcr-flight-row"><div class="fcr-airline-logo">✈️</div><div class="fcr-details"><div class="fcr-date">24 янв, сб</div><div class="fcr-time-route">13:50 – 15:45 · 9ч в пути / Прямой</div></div></div>
+                 </div>
+            </div>
+             <div class="flight-block" onclick="openSuccessTicket()" style="margin-top:12px;">
+                 <div class="fc-card-ref" style="margin:0 16px;">
+                    <div class="fcr-top"><div class="fcr-price">34 681 ₽</div><div class="fcr-heart"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></div></div>
+                    <div class="fcr-flight-row"><div class="fcr-airline-logo">✈️</div><div class="fcr-details"><div class="fcr-date">17 янв, сб</div><div class="fcr-time-route">15:50 – 07:35 · 9ч в пути / Прямой</div></div></div>
+                    <div class="fcr-flight-row"><div class="fcr-airline-logo">✈️</div><div class="fcr-details"><div class="fcr-date">23 янв, пт</div><div class="fcr-time-route">17:35 – 22:15 · 12ч в пути / Прямой</div></div></div>
+                 </div>
+            </div>
+        </div>
+        <div class="os-fixed-btn-area">
+            <button class="cta-btn" onclick="openSuccessTicket()">Найти билеты самостоятельно</button>
+        </div>
+    </div>
+    
+    <!-- SUB SHEET: TICKET FILTERS -->
+    <div id="ticketFilterSub" class="sheet-overlay" onclick="closeSheet('ticketFilterSub')"><div class="bottom-sheet" onclick="event.stopPropagation()"><div class="sheet-title">Фильтры</div><div class="toggle-row"><span class="toggle-label">Только прямые</span><label class="toggle-switch"><input type="checkbox" checked><span class="slider-round"></span></label></div><div class="toggle-row"><span class="toggle-label">Багаж включен</span><label class="toggle-switch"><input type="checkbox"><span class="slider-round"></span></label></div><button class="cta-btn" onclick="closeSheet('ticketFilterSub')">Применить</button></div></div>
+
+    <!-- NEW: HOTELS SHEET -->
+    <div id="sheet-hotels" class="overlay-screen">
+        <div class="os-header light">
+            <div class="os-back" onclick="closeOverlay('sheet-hotels')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#212121" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+            <div class="os-title-wrap"><div class="os-title-main" style="color:#212121">Владивосток</div><div class="os-title-sub" style="color:#818C99">18 янв, вс – 29 янв, чт ∙ 1 гость</div></div>
+            <div style="width:32px;"></div>
+        </div>
+        <div class="hotel-filters">
+            <div class="h-filter-pill">Цена и оплата</div>
+            <div class="h-filter-pill active">Завтрак включен</div>
+            <div class="h-filter-pill">Бесплатная отмена</div>
+            <div class="h-filter-pill">Расположен в центре</div>
+        </div>
+        <div class="os-content" style="background:#F2F3F5; padding:0;">
+            <div class="hotel-card-ref" onclick="openSuccessHotel()">
+                <div class="hcr-img-wrap"><img src="https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=600" class="hcr-img"><div class="hcr-heart"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></div></div>
+                <div class="hcr-content"><div class="hcr-info-line"><div class="hcr-title">Отель DEEP HOTEL</div><div class="hcr-rating">4,5 (41)</div></div><div class="hcr-info-line"><div class="hcr-dist">0.8 км до центра</div><div class="hcr-price">10 751 ₽ <span>/ ночь</span></div></div></div>
+            </div>
+             <div class="hotel-card-ref" onclick="openSuccessHotel()">
+                <div class="hcr-img-wrap"><img src="https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=600" class="hcr-img"><div class="hcr-heart"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></div></div>
+                <div class="hcr-content"><div class="hcr-info-line"><div class="hcr-title">LUNA Capsule Hotel</div><div class="hcr-rating">4,8 (120)</div></div><div class="hcr-info-line"><div class="hcr-dist">1.2 км до центра</div><div class="hcr-price">5 400 ₽ <span>/ ночь</span></div></div></div>
+            </div>
+        </div>
+        <div class="os-fixed-btn-area light">
+            <button class="cta-btn" onclick="openSuccessHotel()">Найти отели самостоятельно</button>
+        </div>
+    </div>
+
+    <!-- NEW: DETAILS SHEET -->
+    <div id="sheet-details-vlad" class="overlay-screen" style="background:var(--bg-color);">
+        <div class="os-header light">
+            <div class="os-back" onclick="closeOverlay('sheet-details-vlad')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#212121" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+            <div class="os-title-wrap"><div class="os-title-main" style="color:#212121">Короче, Владивосток</div></div>
+            <div class="os-back" onclick="openSuccessPlan(false)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--brand-blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div>
+        </div>
+        <div class="os-content" style="padding:0;">
+            <div style="padding:16px;">
+                <div style="background:#fff; border-radius:16px; display:flex; align-items:center; padding:16px; gap: 12px; cursor:pointer;" onclick="openSuccessPlan(false)">
+                    <img src="https://images.pexels.com/photos/10996000/pexels-photo-10996000.jpeg?auto=compress&cs=tinysrgb&w=200" style="width: 80px; height: 80px; object-fit: cover; border-radius:12px;">
+                    <div style="flex:1;">
+                        <div style="font-size:12px; color: var(--text-secondary);">Инструкция к отдыху</div>
+                        <div style="font-size:18px; font-weight:700;">Приморье</div>
+                        <div style="font-size:14px; color: var(--text-secondary);">Природа</div>
+                    </div>
+                    <svg width="20" height="20" fill="none" stroke="#ccc" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+                </div>
+            </div>
+            <div class="details-list-header">Подборки</div>
+            <div class="detail-row"><div class="detail-icon">🗺️</div><div class="detail-text"><div class="detail-title">Районы</div><div class="detail-sub">В красках рассказываем, как всё устроено</div></div><svg width="20" height="20" fill="none" stroke="#ccc" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+            <div class="detail-row"><div class="detail-icon">🏛️</div><div class="detail-text"><div class="detail-title">Известное</div><div class="detail-sub">Поставить галочку: места, которые стоит увидеть</div></div><svg width="20" height="20" fill="none" stroke="#ccc" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+            <div class="detail-row"><div class="detail-icon">💃</div><div class="detail-text"><div class="detail-title">Локальное</div><div class="detail-sub">Узнать, куда ходят местные</div></div><svg width="20" height="20" fill="none" stroke="#ccc" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+            <div class="detail-row"><div class="detail-icon">📸</div><div class="detail-text"><div class="detail-title">Инстаместа</div><div class="detail-sub">Когда приехать, куда встать и как собрать все лайки</div></div><svg width="20" height="20" fill="none" stroke="#ccc" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+            <div class="detail-row"><div class="detail-icon">🛎️</div><div class="detail-text"><div class="detail-title">Рестораны и бары</div><div class="detail-sub">Где красиво завтракать</div></div><svg width="20" height="20" fill="none" stroke="#ccc" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+        </div>
+    </div>
+
+    <!-- NEW: MAP SHEET -->
+    <div id="sheet-map" class="overlay-screen">
+        <div class="os-header" style="position:absolute; top:0; left:0; width:100%; z-index:10; background:transparent; padding-top:44px;">
+            <div class="os-back" style="background:rgba(0,0,0,0.5); border-radius:50%; color:white;" onclick="closeOverlay('sheet-map')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+        </div>
+        <div class="map-filters-wrap">
+            <div class="map-filters">
+                <div class="map-filter-pill">🏛️ Известное</div>
+                <div class="map-filter-pill active">💃 Локальное</div>
+                <div class="map-filter-pill">📸 Инста</div>
+                <div class="map-filter-pill">🍽️ Рестораны и бары</div>
+                <div class="map-filter-pill">🏙️ Районы</div>
+            </div>
+        </div>
+        <div class="map-container">
+            <!-- GOOGLE MAPS EMBED -->
+            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d186243.21796486646!2d131.78864809340763!3d43.166468724565625!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x5fb39cba5249d485%3A0x186704d4dd967e35!2z0JLQu9Cw0LTQuNCy0L7RgdGC0L7Quiwg0J_RgNC40LzQvtGA0YHQutC40Lkg0LrRgNCw0LksINCg0L7RgdGB0LjRjw!5e0!3m2!1sru!2str!4v1766866178106!5m2!1sru!2str" class="map-bg" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            <!-- Pins -->
+            <div class="map-pin" style="top:40%; left:30%;" onclick="toggleMapPin(this)" data-title="Музей истории" data-desc="Главный музей города с богатой коллекцией артефактов и выставок."><img src="https://images.pexels.com/photos/10996000/pexels-photo-10996000.jpeg?auto=compress&cs=tinysrgb&w=400"></div>
+            <div class="map-pin" style="top:50%; left:60%;" onclick="toggleMapPin(this)" data-title="Океанариум" data-desc="Один из крупнейших океанариумов в мире с уникальной морской фауной."><img src="https://images.pexels.com/photos/7938899/pexels-photo-7938899.jpeg?auto=compress&cs=tinysrgb&w=400"></div>
+            <div class="map-pin" style="top:30%; left:70%;" onclick="toggleMapPin(this)" data-title="Золотой мост" data-desc="Вантовый мост через бухту Золотой Рог, символ современного Владивостока."><img src="https://images.pexels.com/photos/19930818/pexels-photo-19930818.jpeg?auto=compress&cs=tinysrgb&w=400"></div>
+            <div class="map-pin" style="top:60%; left:20%;" onclick="toggleMapPin(this)" data-title="Токаревский маяк" data-desc="Старейший маяк на Дальнем Востоке, где можно встретить пятнистых тюленей."><img src="https://images.pexels.com/photos/1983044/pexels-photo-1983044.jpeg?auto=compress&cs=tinysrgb&w=400"></div>
+            <div class="map-pin" style="top:20%; left:50%;" onclick="toggleMapPin(this)" data-title="Ресторан Zuma" data-desc="Легендарный ресторан паназиатской кухни, известный своими морепродуктами."><img src="https://images.pexels.com/photos/3098592/pexels-photo-3098592.jpeg?auto=compress&cs=tinysrgb&w=400"></div>
+            <div class="map-pin" style="top:75%; left:80%;" onclick="toggleMapPin(this)" data-title="Набережная" data-desc="Идеальное место для прогулок, встреч закатов и отдыха у моря."><img src="https://images.pexels.com/photos/2166553/pexels-photo-2166553.jpeg?auto=compress&cs=tinysrgb&w=400"></div>
+        </div>
+        
+        <!-- PIN DESCRIPTION CARD -->
+        <div id="mapPinDescBar" class="map-pin-desc-bar">
+            <h3 id="mapPinTitle" style="font-size:18px; margin:0;">Название места</h3>
+            <p id="mapPinDesc" style="font-size:14px; color:#666; margin:0; line-height:1.4;">Описание места появится здесь.</p>
+            <button class="cta-btn" style="padding:12px; margin-top:8px; font-size:14px;" onclick="closePinDesc()">Понятно</button>
+        </div>
+    </div>
+    
+    <!-- SUB SHEET: MAP DETAIL (Hidden/Replaced by inline desc) -->
+    <div id="mapDetailSheet" class="sheet-overlay" onclick="closeSheet('mapDetailSheet')"><div class="bottom-sheet" onclick="event.stopPropagation()"><div style="display:flex; justify-content:center; margin-bottom:12px;"><div style="width:40px; height:4px; background:#E0E0E0; border-radius:2px;"></div></div><h3 style="margin-bottom:8px;">Музей истории Дальнего Востока</h3><p style="color:#666; font-size:14px; line-height:1.5; margin-bottom:20px;">Что объединяет японский банк, институт рыбного хозяйства и парикмахерскую? Все они находились в этом здании.</p><button class="cta-btn" onclick="closeSheet('mapDetailSheet')">Понятно</button></div></div>
+
+    <!-- POPUPS -->
+    <div id="modal-success-ticket" class="success-popup" onclick="closeSuccess('modal-success-ticket')"><div class="sp-card" onclick="event.stopPropagation()"><div class="sp-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div><div class="sp-text">Поздравляем — вы выполнили задачу и переходите к покупке билета!<br><br>Тестирование успешно окончено. Большое спасибо!</div><button class="cta-btn" onclick="closeSuccess('modal-success-ticket')">Отлично</button></div></div>
+    <div id="modal-success-hotel" class="success-popup" onclick="closeSuccess('modal-success-hotel')"><div class="sp-card" onclick="event.stopPropagation()"><div class="sp-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div><div class="sp-text">Вы выполнили задачу и переходите к бронированию отеля!<br><br>Тестирование успешно окончено. Большое спасибо!</div><button class="cta-btn" onclick="closeSuccess('modal-success-hotel')">Отлично</button></div></div>
+    <div id="modal-success-plan" class="success-popup" onclick="closeSuccess('modal-success-plan')"><div class="sp-card" onclick="event.stopPropagation()"><div class="sp-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg></div><div class="sp-text">...</div><button class="cta-btn" onclick="closeSuccess('modal-success-plan')">...</button></div></div>
+
+</div>
+
+<script>
+    // --- STATE ---
+    let selectedCategoryIndex = 1; let selectedDurationText = "На пару дней"; let depRange = { start: null, end: null }; let retRange = { start: null, end: null }; let activeCal = 'dep'; let tempStart = null; let tempEnd = null;
+    let isHotelIncluded = false; // Hotel Toggle State (Global)
+    const app = document.querySelector('.app-container');
+
+    // Navigation
+    function openPicker() { app.classList.add('show-picker'); }
+    function closePicker() { app.classList.remove('show-picker'); }
+    function openDetails() { app.classList.add('show-details'); }
+    function closeDetails() { app.classList.remove('show-details'); }
+    function openFeed() { app.classList.add('show-feed'); renderFeed(); }
+    function closeFeed() { app.classList.remove('show-feed'); }
+    
+    // --- STORY LOGIC ---
+    const stories = [
+        {
+            city: "Казань", price: 4500,
+            slides: [
+                { img: "https://images.pexels.com/photos/9293684/pexels-photo-9293684.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Мечеть Кул-Шариф — сердце Казанского Кремля.", tags: ["Архитектура", "История"] },
+                { img: "https://images.pexels.com/photos/10589367/pexels-photo-10589367.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Прогулки по улице Баумана в любое время года.", tags: ["Прогулки", "Атмосфера"] },
+                { img: "https://images.pexels.com/photos/29143171/pexels-photo-29143171.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Чак-чак, эчпочмак и татарское гостеприимство.", tags: ["Гастротуризм", "Еда"] },
+                { img: "https://images.pexels.com/photos/15235039/pexels-photo-15235039.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Вечерние огни города завораживают.", tags: ["Ночной город"] },
+                { img: "https://images.pexels.com/photos/8538934/pexels-photo-8538934.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Национальный культурный центр и набережная.", tags: ["Культура", "Виды"] }
+            ]
+        },
+        {
+            city: "Владивосток", price: 18000,
+            slides: [
+                { img: "https://images.pexels.com/photos/10996000/pexels-photo-10996000.jpeg?auto=compress&cs=tinysrgb&w=1200", text: "Прогуляться к столетнему действующему маяку на Босфоре Восточном", tags: ["Архитектура", "История", "Виды"] },
+                { img: "https://images.pexels.com/photos/7938899/pexels-photo-7938899.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Искупаться в бодрящем Японском море", tags: ["Пляжи", "Походы", "Дикая природа"] },
+                { img: "https://images.pexels.com/photos/19930818/pexels-photo-19930818.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Выбрать отель с видом на Золотой мост", tags: ["Архитектура", "Виды"] },
+                { img: "https://images.pexels.com/photos/1983044/pexels-photo-1983044.jpeg?auto=compress&cs=tinysrgb&w=800", text: "На краю света дуют такие ветра, что их не стоит упускать", tags: ["Движ", "Под парусом"] },
+                { img: "https://images.pexels.com/photos/3098592/pexels-photo-3098592.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Легендарный краб, гребешок, морской ёж или северные креветки", tags: ["Гастротуризм", "Морепродукты"] }
+            ]
+        },
+        {
+            city: "Калининград", price: 5800,
+            slides: [
+                { img: "https://images.pexels.com/photos/12369759/pexels-photo-12369759.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Кафедральный собор и могила Канта.", tags: ["История", "Архитектура"] },
+                { img: "https://images.pexels.com/photos/10380740/pexels-photo-10380740.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Прогулки по Рыбной деревне.", tags: ["Атмосфера", "Прогулки"] },
+                { img: "https://images.pexels.com/photos/8802009/pexels-photo-8802009.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Атмосфера старого Кенигсберга.", tags: ["История"] },
+                { img: "https://images.pexels.com/photos/10594420/pexels-photo-10594420.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Балтийское море и дюны рядом.", tags: ["Природа", "Море"] },
+                { img: "https://images.pexels.com/photos/9929998/pexels-photo-9929998.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Уютные кофейни и европейская архитектура.", tags: ["Кофе", "Европа"] }
+            ]
+        }
+    ];
+
+    const storyTrack = document.getElementById('storyTrack');
+    let currentStoryIndex = 1; let currentSlideIndex = 0; let startY = 0;
+    
+    function capitalize(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
+    // HOTEL PRICE LOGIC: +35000 if toggle is on
+    function getFormattedPrice(basePrice) { 
+        return isHotelIncluded ? `от ${(basePrice+35000).toLocaleString()} ₽` : `от ${basePrice.toLocaleString()} ₽`; 
+    }
+    // HOTEL BADGE LOGIC (Story: White, Feed: Blue)
+    function getBadgeIcons(color = '#0C73FE') { 
+        const fill = color;
+        return isHotelIncluded ? 
+        `<svg width="12" height="12" viewBox="0 0 24 24" fill="${fill}" xmlns="http://www.w3.org/2000/svg"><path d="M20.5604 3.9101C21.1504 4.5001 21.1504 5.4501 20.5604 6.0301L16.6704 9.9201L18.7904 19.1101L17.3804 20.5301L13.5004 13.1001L9.60043 17.0001L9.96043 19.4701L8.89043 20.5301L7.13043 17.3501L3.94043 15.5801L5.00043 14.5001L7.50043 14.8701L11.3704 11.0001L3.94043 7.0901L5.36043 5.6801L14.5504 7.8001L18.4404 3.9101C19.0004 3.3301 20.0004 3.3301 20.5604 3.9101Z" fill="${fill}"/></svg><span style="color:${fill}; font-weight:800; margin:0 2px;">+</span><svg width="12" height="12" viewBox="0 0 16 16" fill="${fill}" xmlns="http://www.w3.org/2000/svg"><path d="M0 1C0 0.446875 0.446875 0 1 0H15C15.5531 0 16 0.446875 16 1C16 1.55313 15.5531 2 15 2V14C15.5531 14 16 14.4469 16 15C16 15.5531 15.5531 16 15 16H9.5V14.5C9.5 13.6719 8.82812 13 8 13C7.17188 13 6.5 13.6719 6.5 14.5V16H1C0.446875 16 0 15.5531 0 15C0 14.4469 0.446875 14 1 14V2C0.446875 2 0 1.55313 0 1ZM3 3.5V4.5C3 4.775 3.225 5 3.5 5H4.5C4.775 5 5 4.775 5 4.5V3.5C5 3.225 4.775 3 4.5 3H3.5C3.225 3 3 3.225 3 3.5ZM7.5 3C7.225 3 7 3.225 7 3.5V4.5C7 4.775 7.225 5 7.5 5H8.5C8.775 5 9 4.775 9 4.5V3.5C9 3.225 8.775 3 8.5 3H7.5ZM11 3.5V4.5C11 4.775 11.225 5 11.5 5H12.5C12.775 5 13 4.775 13 4.5V3.5C13 3.225 12.775 3 12.5 3H11.5C11.225 3 11 3.225 11 3.5ZM3.5 6C3.225 6 3 6.225 3 6.5V7.5C3 7.775 3.225 8 3.5 8H4.5C4.775 8 5 7.775 5 7.5V6.5C5 6.225 4.775 6 4.5 6H3.5ZM7 6.5V7.5C7 7.775 7.225 8 7.5 8H8.5C8.775 8 9 7.775 9 7.5V6.5C9 6.225 8.775 6 8.5 6H7.5C7.225 6 7 6.225 7 6.5ZM11.5 6C11.225 6 11 6.225 11 6.5V7.5C11 7.775 11.225 8 11.5 8H12.5C12.775 8 13 7.775 13 7.5V6.5C13 6.225 12.775 6 12.5 6H11.5ZM10.25 12C10.6656 12 11.0094 11.6594 10.9062 11.2563C10.575 9.95938 9.4 9 8 9C6.6 9 5.42188 9.95938 5.09375 11.2563C4.99063 11.6563 5.3375 12 5.75 12H10.25Z" fill="${fill}"/></svg>` 
+        : `<svg width="12" height="12" viewBox="0 0 24 24" fill="${fill}" xmlns="http://www.w3.org/2000/svg"><path d="M20.5604 3.9101C21.1504 4.5001 21.1504 5.4501 20.5604 6.0301L16.6704 9.9201L18.7904 19.1101L17.3804 20.5301L13.5004 13.1001L9.60043 17.0001L9.96043 19.4701L8.89043 20.5301L7.13043 17.3501L3.94043 15.5801L5.00043 14.5001L7.50043 14.8701L11.3704 11.0001L3.94043 7.0901L5.36043 5.6801L14.5504 7.8001L18.4404 3.9101C19.0004 3.3301 20.0004 3.3301 20.5604 3.9101Z" fill="${fill}"/></svg>`; 
+    }
+
+    function renderStories() {
+        // isHotelIncluded is now global
+        storyTrack.innerHTML = '';
+        stories.forEach((story, idx) => {
+            const page = document.createElement('div'); page.className = 'story-page'; page.id = `story-city-${idx}`;
+            page.innerHTML = `
+                <div class="story-overlay-top">
+                     <div class="story-indicators" id="indicators-${idx}">${[...Array(5)].map((_, i) => `<div class="indicator ${i===0?'active':''}"></div>`).join('')}</div>
+                     <div class="story-badge">${getBadgeIcons('white')} ${getFormattedPrice(story.price)}</div>
+                     <div class="story-title">${story.city}</div>
+                </div>
+                <div class="story-nav-left" onclick="prevSlide(${idx})"></div>
+                <div class="story-nav-right" onclick="nextSlide(${idx})"></div>
+                <div class="story-overlay-bottom"><div class="story-tags" id="tags-${idx}"></div><div class="story-desc" id="desc-${idx}"></div></div>`;
+            storyTrack.appendChild(page); updateSlideUI(idx, 0); 
+        });
+    }
+    function handleSwipeStart(y) { startY = y; }
+    function handleSwipeEnd(y) { if (startY - y > 50 && currentStoryIndex < stories.length - 1) { currentStoryIndex++; currentSlideIndex=0; updateTrackPosition(); updateSlideUI(currentStoryIndex); } else if (y - startY > 50 && currentStoryIndex > 0) { currentStoryIndex--; currentSlideIndex=0; updateTrackPosition(); updateSlideUI(currentStoryIndex); } }
+    storyTrack.addEventListener('touchstart', (e) => handleSwipeStart(e.touches[0].clientY)); storyTrack.addEventListener('touchend', (e) => handleSwipeEnd(e.changedTouches[0].clientY));
+    let isDragging = false; storyTrack.addEventListener('mousedown', (e) => { isDragging = true; handleSwipeStart(e.clientY); }); storyTrack.addEventListener('mouseup', (e) => { if(isDragging) { handleSwipeEnd(e.clientY); isDragging = false; } }); storyTrack.addEventListener('mouseleave', () => { isDragging = false; });
+    function updateTrackPosition() { storyTrack.style.transform = `translateY(-${currentStoryIndex * (100 / stories.length)}%)`; }
+    function nextSlide(cityIdx) { if(currentSlideIndex < 4) currentSlideIndex++; updateSlideUI(cityIdx); }
+    function prevSlide(cityIdx) { if(currentSlideIndex > 0) currentSlideIndex--; updateSlideUI(cityIdx); }
+    function updateSlideUI(cityIdx, slideIdx = currentSlideIndex) { currentSlideIndex = slideIdx; const data = stories[cityIdx].slides[currentSlideIndex]; const page = document.getElementById(`story-city-${cityIdx}`); if(page) page.style.backgroundImage = `url(${data.img})`; const desc = document.getElementById(`desc-${cityIdx}`); if(desc) desc.innerText = data.text; const tagsContainer = document.getElementById(`tags-${cityIdx}`); if(tagsContainer && data.tags) { tagsContainer.innerHTML = data.tags.map(t => `<span class="s-tag">${capitalize(t)}</span>`).join(''); } const indicators = document.getElementById(`indicators-${cityIdx}`)?.children; if(indicators) { for(let i=0; i<5; i++) { indicators[i].classList.toggle('active', i === currentSlideIndex); } } }
+    
+    // ONBOARDING HINT LOGIC
+    let hintShown = false;
+
+    function openStoryForCity(cityIndex = 1) { 
+        app.classList.add('show-story'); 
+        document.getElementById('statusBar').classList.add('dark'); 
+        renderStories(); 
+        currentStoryIndex = cityIndex; 
+        currentSlideIndex = 0; 
+        updateTrackPosition(); 
+        updateSlideUI(cityIndex); 
+
+        // Show Hint if not shown yet
+        if (!hintShown) {
+            const hint = document.getElementById('story-hint');
+            hint.classList.add('active');
+            
+            // Add one-time listener to remove hint on any interaction
+            const removeHint = () => {
+                hint.classList.remove('active');
+                hintShown = true;
+                // Remove listeners to avoid memory leaks
+                document.removeEventListener('click', removeHint);
+                document.removeEventListener('touchstart', removeHint);
+            };
+            
+            // Short timeout to ensure the click that opened the story doesn't immediately close the hint
+            setTimeout(() => {
+                document.addEventListener('click', removeHint);
+                document.addEventListener('touchstart', removeHint);
+            }, 100);
+        }
+    }
+
+    function closeStory() { app.classList.remove('show-story'); document.getElementById('statusBar').classList.remove('dark'); }
+    function toggleLike(btn) { btn.classList.toggle('liked'); }
+
+    // --- GENERAL LOGIC ---
+    function openSheet(id) { document.getElementById(id).classList.add('active'); if(id==='calendarSheet') renderCalendar(); }
+    function closeSheet(id) { document.getElementById(id).classList.remove('active'); }
+    function openInfoModal() { document.getElementById('infoModal').classList.add('active'); }
+    function closeInfoModal() { document.getElementById('infoModal').classList.remove('active'); }
+    function selectCity(name) { document.getElementById('headerCityPicker').innerHTML = `Вылет из <u>${name}</u>`; closeSheet('citySheet'); }
+    function toggleVisaText() { document.getElementById('visaLabel').innerText = document.getElementById('visaToggle').checked ? "Только без виз" : "Виза не важна"; }
+    
+    // Global Hotel Toggle
+    document.getElementById('hotelToggle').addEventListener('change', (e) => { 
+        isHotelIncluded = e.target.checked; 
+        document.getElementById('feedHotelToggle').checked = isHotelIncluded; 
+    });
+    
+    function toggleHotelGlobal(isChecked) {
+        isHotelIncluded = isChecked;
+        document.getElementById('hotelToggle').checked = isHotelIncluded;
+        renderFeed(); // Re-render prices in feed
+    }
+
+    document.getElementById('budgetSlider').addEventListener('input', (e) => { document.getElementById('budgetValue').innerText = `10 000 ₽ – ${parseInt(e.target.value).toLocaleString()} ₽`; });
+    document.getElementById('durationSlider').addEventListener('input', (e) => { const val = parseInt(e.target.value); document.getElementById('durationText').innerText = (val <= 2) ? "На пару дней" : (val >= 6 && val <= 7) ? "На недельку" : (val >= 13 && val <= 15) ? "На пару недель" : (val > 21) ? "Надолго" : val + " дней"; selectedDurationText = document.getElementById('durationText').innerText; });
+    function openCalendar(type) { activeCal = type; const cr = (type === 'dep') ? depRange : retRange; tempStart = cr.start; tempEnd = cr.end; document.getElementById('calTypeTitle').innerText = (type === 'dep') ? 'вылета' : 'возвращения'; renderCalendar(); openSheet('calendarSheet'); }
+    function renderCalendar() { const grid = document.getElementById('calendarGrid'); grid.innerHTML = '<div class="cal-day-name">Пн</div><div class="cal-day-name">Вт</div><div class="cal-day-name">Ср</div><div class="cal-day-name">Чт</div><div class="cal-day-name">Пт</div><div class="cal-day-name">Сб</div><div class="cal-day-name">Вс</div>'; for(let i=0; i<3; i++) grid.innerHTML += '<div class="cal-day"></div>'; for(let day=1; day<=31; day++) { const el = document.createElement('div'); el.className = 'cal-day'; el.innerText = day; if (tempStart && day === tempStart) el.classList.add('start'); if (tempEnd && day === tempEnd) el.classList.add('end'); if (tempStart && tempEnd && day > tempStart && day < tempEnd) el.classList.add('range'); el.onclick = () => handleDateClick(day); grid.appendChild(el); } }
+    function handleDateClick(day) { if (!tempStart || (tempStart && tempEnd)) { tempStart = day; tempEnd = null; } else if (day < tempStart) { tempStart = day; } else { tempEnd = day; } renderCalendar(); }
+    function saveDates() { if (activeCal === 'dep') { depRange = { start: tempStart, end: tempEnd }; updateDateLabel('dateStartDisplay', depRange); } else { retRange = { start: tempStart, end: tempEnd }; updateDateLabel('dateEndDisplay', retRange); } closeSheet('calendarSheet'); }
+    function updateDateLabel(id, range) { const el = document.getElementById(id); if (range.start) { el.innerHTML = `<b>${range.start} ${range.end ? '- '+range.end : ''} янв</b>`; el.style.color = '#0C73FE'; } else { el.innerHTML = 'Не важно'; el.style.color = '#212121'; } }
+    function selectHotel(stars, label) { document.getElementById('hotelLabelDisplay').innerText = "Категория отеля: " + label; document.getElementById('hotelLabelDisplay').style.color = "#212121"; const c = document.getElementById('starsContainer'); c.innerHTML=''; for(let i=0;i<stars&&i<3;i++) c.innerHTML+='<span class="star">★</span>'; if(stars===5) c.innerHTML='<span class="star empty">★</span><span class="star empty">★</span><span class="star empty">★</span>'; document.querySelectorAll('.hotel-opt').forEach((el,i)=>{ el.classList.toggle('selected', i+1 === stars); }); closeSheet('hotelSheet'); }
+
+    // --- DATA & CONFIG ---
+    const categories = [
+        { id: 1, name: "По России", filters: ["Наше море", "Миллионники", "Культурное наследие", "Русская природа", "Горы", "Вкусы Родины"], img: "https://images.pexels.com/photos/8893464/pexels-photo-8893464.jpeg?auto=compress&cs=tinysrgb&w=400" },
+        { id: 0, name: "К морю", filters: ["Белый песок", "Ловить волну", "Рыбки", "Под парусом", "Виды", "Наше море", "Вода как молоко"], img: "https://images.pexels.com/photos/573850/pexels-photo-573850.jpeg?auto=compress&cs=tinysrgb&w=400" },
+        { id: 5, name: "В горы", filters: ["Походы", "Канатки", "Альпийские деревни", "Снег и высота", "Каталка"], img: "https://images.pexels.com/photos/808465/pexels-photo-808465.jpeg?auto=compress&cs=tinysrgb&w=400" },
+        { id: 2, name: "Дикая планета", filters: ["Сафари", "Походы", "Горы", "Животные рядом", "Вулканы", "Ледники", "Океаны", "Пустыни"], img: "https://images.pexels.com/photos/735987/pexels-photo-735987.jpeg?auto=compress&cs=tinysrgb&w=400" },
+        { id: 3, name: "Движ", filters: ["Ловить волну", "Под парусом", "Велоспорт", "Хайкинг", "Сноуборд", "Каталка", "Теннис"], img: "https://images.pexels.com/photos/2433353/pexels-photo-2433353.jpeg?auto=compress&cs=tinysrgb&w=400" },
+        { id: 4, name: "Гастрономия", filters: ["Уличная еда", "Рынки", "Вино и винодельни", "Национальная кухня", "Кофейная культура", "По барам", "Гастротуры"], img: "https://images.pexels.com/photos/1640772/pexels-photo-1640772.jpeg?auto=compress&cs=tinysrgb&w=400" },
+        { id: 6, name: "Мировая культура", filters: ["Музеи", "Древний мир", "Средневековье", "Искусство", "Исторические центры", "Архитектура", "Тот самый вид"], img: "https://images.pexels.com/photos/326709/pexels-photo-326709.jpeg?auto=compress&cs=tinysrgb&w=400" },
+        { id: 9, name: "Релакс", filters: ["Санатории", "Йога", "Бани и спа", "Термальные источники"], img: "https://images.pexels.com/photos/4004122/pexels-photo-4004122.jpeg?auto=compress&cs=tinysrgb&w=400" },
+        { id: 10, name: "С детьми", filters: ["Игровые парки", "Природа", "Животные", "Парки развлечений", "Музеи", "Интерактив", "История"], img: "https://images.pexels.com/photos/573285/pexels-photo-573285.jpeg?auto=compress&cs=tinysrgb&w=400" },
+        { id: 12, name: "К соседям в гости", filters: ["Горы и каньоны", "Древние города", "Восточные рынки", "Гостеприимство", "Национальная кухня", "Природа без виз", "Наследие СССР"], img: "https://images.pexels.com/photos/15816750/pexels-photo-15816750.jpeg?auto=compress&cs=tinysrgb&w=400" },
+        { id: 13, name: "В Азию", filters: ["Джунгли", "Пляжи", "Культура", "Мегаполисы", "Шоппинг", "Национальная кухня", "Массаж и спа"], img: "https://images.unsplash.com/photo-1535139262971-c51845709a48?auto=format&fit=crop&w=400&q=80" },
+        { id: 14, name: "На Запад", filters: ["Старые города", "Районы и кварталы", "Рынки", "Вино", "Национальная кухня", "Архитектура"], img: "https://images.pexels.com/photos/4039924/pexels-photo-4039924.jpeg?auto=compress&cs=tinysrgb&w=400" }
+    ];
+
+    const allDestinations = [
+        // ID 1: По России
+        { catId: 1, name: "Казань", desc: "Стык культур", price: 4500, img: "https://images.pexels.com/photos/9293684/pexels-photo-9293684.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Нижний Новгород", desc: "Закаты на Волге", price: 3200, img: "https://images.pexels.com/photos/12187621/pexels-photo-12187621.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Калининград", desc: "Балтика и Европа", price: 5800, img: "https://images.pexels.com/photos/35269778/pexels-photo-35269778.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Владивосток", desc: "Море и сопки", price: 18000, img: "https://images.pexels.com/photos/10996000/pexels-photo-10996000.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Екатеринбург", desc: "Столица Урала", price: 6000, img: "https://images.pexels.com/photos/7031537/pexels-photo-7031537.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Сочи", desc: "Море и горы", price: 7500, img: "https://images.pexels.com/photos/12728207/pexels-photo-12728207.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Иркутск", desc: "Ворота Байкала", price: 12000, img: "https://images.pexels.com/photos/7108244/pexels-photo-7108244.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Мурманск", desc: "Северное сияние", price: 8900, img: "https://images.pexels.com/photos/12439561/pexels-photo-12439561.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Ярославль", desc: "Золотое кольцо", price: 2500, img: "https://images.pexels.com/photos/11925979/pexels-photo-11925979.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Петрозаводск", desc: "Карелия", price: 4000, img: "https://images.pexels.com/photos/9301677/pexels-photo-9301677.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Самара", desc: "Набережная", price: 3800, img: "https://images.pexels.com/photos/13316669/pexels-photo-13316669.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Ростов-на-Дону", desc: "Южный ритм", price: 4200, img: "https://images.pexels.com/photos/8598816/pexels-photo-8598816.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Краснодар", desc: "Вкус и тепло", price: 5000, img: "https://images.pexels.com/photos/17039257/pexels-photo-17039257.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Пятигорск", desc: "Воды и горы", price: 6500, img: "https://images.pexels.com/photos/12127278/pexels-photo-12127278.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Кисловодск", desc: "Город-парк", price: 6800, img: "https://images.pexels.com/photos/18075697/pexels-photo-18075697.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Томск", desc: "Деревянное зодчество", price: 10000, img: "https://images.pexels.com/photos/10765935/pexels-photo-10765935.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Тюмень", desc: "Горячие источники", price: 7200, img: "https://images.pexels.com/photos/8361650/pexels-photo-8361650.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Уфа", desc: "Национальный колорит", price: 4600, img: "https://images.pexels.com/photos/15209941/pexels-photo-15209941.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Астрахань", desc: "Волга и рыба", price: 5500, img: "https://images.pexels.com/photos/10230656/pexels-photo-10230656.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 1, name: "Вологда", desc: "Северный уют", price: 3000, img: "https://images.pexels.com/photos/11107543/pexels-photo-11107543.jpeg?auto=compress&cs=tinysrgb&w=600" },
+
+        // ID 0: К морю
+        { catId: 0, name: "Мальдивы", desc: "Рай на земле", price: 60000, img: "https://images.pexels.com/photos/1483053/pexels-photo-1483053.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 0, name: "Пхукет", desc: "Тайская классика", price: 45000, img: "https://images.pexels.com/photos/1682691/pexels-photo-1682691.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 0, name: "Бали", desc: "Остров богов", price: 55000, img: "https://images.pexels.com/photos/2166553/pexels-photo-2166553.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 0, name: "Дубай", desc: "Роскошь и пляж", price: 35000, img: "https://images.pexels.com/photos/3223554/pexels-photo-3223554.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 0, name: "Анталья", desc: "Все включено", price: 25000, img: "https://images.pexels.com/photos/2362002/pexels-photo-2362002.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 0, name: "Занзибар", desc: "Африканские страсти", price: 50000, img: "https://images.pexels.com/photos/2406775/pexels-photo-2406775.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 0, name: "Сейшелы", desc: "Уединение", price: 70000, img: "https://images.pexels.com/photos/1287460/pexels-photo-1287460.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 0, name: "Канкун", desc: "Мексиканский вайб", price: 80000, img: "https://images.pexels.com/photos/3355788/pexels-photo-3355788.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 0, name: "Рио", desc: "Копакабана", price: 90000, img: "https://images.pexels.com/photos/2868242/pexels-photo-2868242.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 0, name: "Барселона", desc: "Город и пляж", price: 40000, img: "https://images.pexels.com/photos/1388030/pexels-photo-1388030.jpeg?auto=compress&cs=tinysrgb&w=600" },
+
+        // ID 5: В горы
+        { catId: 5, name: "Шамони", desc: "Альпы", price: 45000, img: "https://images.pexels.com/photos/808465/pexels-photo-808465.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 5, name: "Гудаури", desc: "Грузия", price: 20000, img: "https://images.pexels.com/photos/417074/pexels-photo-417074.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 5, name: "Красная Поляна", desc: "Главный курорт", price: 15000, img: "https://images.pexels.com/photos/869258/pexels-photo-869258.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 5, name: "Шымбулак", desc: "Казахстан", price: 18000, img: "https://images.pexels.com/photos/356808/pexels-photo-356808.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 5, name: "Инсбрук", desc: "Австрия", price: 35000, img: "https://images.pexels.com/photos/371589/pexels-photo-371589.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 5, name: "Церматт", desc: "Маттерхорн", price: 60000, img: "https://images.pexels.com/photos/753619/pexels-photo-753619.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 5, name: "Домбай", desc: "Кавказ", price: 12000, img: "https://images.pexels.com/photos/417173/pexels-photo-417173.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 5, name: "Эльбрус", desc: "Высота Европы", price: 14000, img: "https://images.pexels.com/photos/270756/pexels-photo-270756.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 5, name: "Аспен", desc: "США", price: 120000, img: "https://images.pexels.com/photos/831778/pexels-photo-831778.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 5, name: "Банско", desc: "Болгария", price: 30000, img: "https://images.pexels.com/photos/6832/snow-mountains-winter-fog.jpg?auto=compress&cs=tinysrgb&w=600" },
+
+        // ID 2: Дикая планета
+        { catId: 2, name: "Камчатка", desc: "Вулканы", price: 40000, img: "https://images.pexels.com/photos/3408744/pexels-photo-3408744.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 2, name: "Намибия", desc: "Пустыни", price: 80000, img: "https://images.pexels.com/photos/1001435/pexels-photo-1001435.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 2, name: "Исландия", desc: "Лёд и пламя", price: 60000, img: "https://images.pexels.com/photos/3244976/pexels-photo-3244976.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 2, name: "Байкал", desc: "Зимний лёд", price: 25000, img: "https://images.pexels.com/photos/3405459/pexels-photo-3405459.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 2, name: "Патагония", desc: "Край света", price: 110000, img: "https://images.pexels.com/photos/2749481/pexels-photo-2749481.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 2, name: "Танзания", desc: "Сафари", price: 75000, img: "https://images.pexels.com/photos/247376/pexels-photo-247376.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 2, name: "Алтай", desc: "Место силы", price: 20000, img: "https://images.pexels.com/photos/414171/pexels-photo-414171.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 2, name: "Амазонка", desc: "Джунгли", price: 95000, img: "https://images.pexels.com/photos/1481581/pexels-photo-1481581.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 2, name: "Карелия", desc: "Леса и озера", price: 10000, img: "https://images.pexels.com/photos/167699/pexels-photo-167699.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 2, name: "Коста-Рика", desc: "Заповедник", price: 85000, img: "https://images.pexels.com/photos/3225517/pexels-photo-3225517.jpeg?auto=compress&cs=tinysrgb&w=600" },
+
+        // ID 3: Движ
+        { catId: 3, name: "Кейптаун", desc: "Серфинг", price: 65000, img: "https://images.pexels.com/photos/1654498/pexels-photo-1654498.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 3, name: "Квинстаун", desc: "Экстрим", price: 90000, img: "https://images.pexels.com/photos/2433353/pexels-photo-2433353.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 3, name: "Дахаб", desc: "Кайтсерфинг", price: 35000, img: "https://images.pexels.com/photos/1032650/pexels-photo-1032650.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 3, name: "Мадейра", desc: "Хайкинг", price: 45000, img: "https://images.pexels.com/photos/1365425/pexels-photo-1365425.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 3, name: "Лиссабон", desc: "Сёрф-споты", price: 40000, img: "https://images.pexels.com/photos/67386/pexels-photo-67386.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 3, name: "Дубай", desc: "Скай-дайвинг", price: 35000, img: "https://images.pexels.com/photos/1267338/pexels-photo-1267338.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 3, name: "Гавайи", desc: "Большие волны", price: 100000, img: "https://images.pexels.com/photos/1295138/pexels-photo-1295138.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 3, name: "Интерлакен", desc: "Параглайдинг", price: 50000, img: "https://images.pexels.com/photos/165505/pexels-photo-165505.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 3, name: "Красная Поляна", desc: "Велоспорт", price: 15000, img: "https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 3, name: "Тарифа", desc: "Ветра", price: 42000, img: "https://images.pexels.com/photos/261895/pexels-photo-261895.jpeg?auto=compress&cs=tinysrgb&w=600" },
+
+        // ID 4: Гастрономия
+        { catId: 4, name: "Тбилиси", desc: "Вино и хинкали", price: 18000, img: "https://images.pexels.com/photos/624015/pexels-photo-624015.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 4, name: "Париж", desc: "Мишлен", price: 40000, img: "https://images.pexels.com/photos/1307698/pexels-photo-1307698.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 4, name: "Рим", desc: "Паста и пицца", price: 35000, img: "https://images.pexels.com/photos/208537/pexels-photo-208537.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 4, name: "Бангкок", desc: "Стрит-фуд", price: 45000, img: "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 4, name: "Стамбул", desc: "Кебаб и кофе", price: 25000, img: "https://images.pexels.com/photos/3889855/pexels-photo-3889855.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 4, name: "Токио", desc: "Суши", price: 60000, img: "https://images.pexels.com/photos/2098085/pexels-photo-2098085.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 4, name: "Сан-Себастьян", desc: "Тапас", price: 45000, img: "https://images.pexels.com/photos/1055058/pexels-photo-1055058.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 4, name: "Мехико", desc: "Тако", price: 80000, img: "https://images.pexels.com/photos/4669250/pexels-photo-4669250.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 4, name: "Лима", desc: "Севиче", price: 90000, img: "https://images.pexels.com/photos/699953/pexels-photo-699953.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 4, name: "Мендоса", desc: "Мальбек", price: 85000, img: "https://images.pexels.com/photos/291258/pexels-photo-291258.jpeg?auto=compress&cs=tinysrgb&w=600" },
+
+        // ID 6: Мировая культура
+        { catId: 6, name: "Рим", desc: "Колизей", price: 35000, img: "https://images.pexels.com/photos/1797161/pexels-photo-1797161.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 6, name: "Каир", desc: "Пирамиды", price: 30000, img: "https://images.pexels.com/photos/71241/pexels-photo-71241.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 6, name: "Афины", desc: "Акрополь", price: 32000, img: "https://images.pexels.com/photos/164769/pexels-photo-164769.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 6, name: "Киото", desc: "Храмы", price: 65000, img: "https://images.pexels.com/photos/402028/pexels-photo-402028.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 6, name: "Петра", desc: "Иордания", price: 40000, img: "https://images.pexels.com/photos/1631665/pexels-photo-1631665.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 6, name: "Самарканд", desc: "Шелковый путь", price: 22000, img: "https://images.pexels.com/photos/15999723/pexels-photo-15999723.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 6, name: "Петербург", desc: "Эрмитаж", price: 5000, img: "https://images.pexels.com/photos/931018/pexels-photo-931018.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 6, name: "Флоренция", desc: "Ренессанс", price: 40000, img: "https://images.pexels.com/photos/208636/pexels-photo-208636.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 6, name: "Ангкор-Ват", desc: "Камбоджа", price: 55000, img: "https://images.pexels.com/photos/1004584/pexels-photo-1004584.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 6, name: "Мачу-Пикчу", desc: "Инки", price: 100000, img: "https://images.pexels.com/photos/2929906/pexels-photo-2929906.jpeg?auto=compress&cs=tinysrgb&w=600" },
+
+        // ID 9: Релакс
+        { catId: 9, name: "Убуд", desc: "Йога", price: 55000, img: "https://images.pexels.com/photos/460377/pexels-photo-460377.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 9, name: "Карловы Вары", desc: "Воды", price: 35000, img: "https://images.pexels.com/photos/1591361/pexels-photo-1591361.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 9, name: "Будапешт", desc: "Купальни", price: 30000, img: "https://images.pexels.com/photos/2350352/pexels-photo-2350352.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 9, name: "Баден-Баден", desc: "Спа", price: 45000, img: "https://images.pexels.com/photos/2097616/pexels-photo-2097616.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 9, name: "Ришикеш", desc: "Ашрамы", price: 40000, img: "https://images.pexels.com/photos/3927387/pexels-photo-3927387.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 9, name: "Памуккале", desc: "Термы", price: 25000, img: "https://images.pexels.com/photos/3363363/pexels-photo-3363363.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 9, name: "Голубая Лагуна", desc: "Исландия", price: 60000, img: "https://images.pexels.com/photos/3680316/pexels-photo-3680316.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 9, name: "Ессентуки", desc: "Санатории", price: 8000, img: "https://images.pexels.com/photos/1612351/pexels-photo-1612351.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 9, name: "Тюмень", desc: "Источники", price: 7000, img: "https://images.pexels.com/photos/8361650/pexels-photo-8361650.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 9, name: "Мальдивы", desc: "Массаж", price: 60000, img: "https://images.pexels.com/photos/3225531/pexels-photo-3225531.jpeg?auto=compress&cs=tinysrgb&w=600" },
+
+        // ID 10: С детьми
+        { catId: 10, name: "Париж", desc: "Диснейленд", price: 40000, img: "https://images.pexels.com/photos/1461974/pexels-photo-1461974.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 10, name: "Анталья", desc: "Анимация", price: 25000, img: "https://images.pexels.com/photos/3315291/pexels-photo-3315291.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 10, name: "Сингапур", desc: "Зоопарк", price: 55000, img: "https://images.pexels.com/photos/774095/pexels-photo-774095.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 10, name: "Дубай", desc: "Парки", price: 35000, img: "https://images.pexels.com/photos/3763190/pexels-photo-3763190.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 10, name: "Сочи", desc: "Сочи-парк", price: 7500, img: "https://images.pexels.com/photos/12728207/pexels-photo-12728207.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 10, name: "Лондон", desc: "Гарри Поттер", price: 45000, img: "https://images.pexels.com/photos/672532/pexels-photo-672532.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 10, name: "Токио", desc: "Дисней", price: 60000, img: "https://images.pexels.com/photos/161401/fushimi-inari-taisha-shrine-kyoto-japan-temple-161401.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 10, name: "Копенгаген", desc: "Тиволи", price: 35000, img: "https://images.pexels.com/photos/1123982/pexels-photo-1123982.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 10, name: "Рованиеми", desc: "Санта", price: 50000, img: "https://images.pexels.com/photos/730256/pexels-photo-730256.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 10, name: "Валенсия", desc: "Океанариум", price: 38000, img: "https://images.pexels.com/photos/2157393/pexels-photo-2157393.jpeg?auto=compress&cs=tinysrgb&w=600" },
+
+        // ID 12: К соседям
+        { catId: 12, name: "Тбилиси", desc: "Грузия", price: 18000, img: "https://images.pexels.com/photos/624015/pexels-photo-624015.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 12, name: "Ереван", desc: "Армения", price: 15000, img: "https://images.pexels.com/photos/15816750/pexels-photo-15816750.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 12, name: "Баку", desc: "Азербайджан", price: 17000, img: "https://images.pexels.com/photos/2059385/pexels-photo-2059385.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 12, name: "Ташкент", desc: "Узбекистан", price: 20000, img: "https://images.pexels.com/photos/5243888/pexels-photo-5243888.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 12, name: "Алматы", desc: "Казахстан", price: 18000, img: "https://images.pexels.com/photos/356807/pexels-photo-356807.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 12, name: "Самарканд", desc: "История", price: 22000, img: "https://images.pexels.com/photos/5243888/pexels-photo-5243888.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 12, name: "Бишкек", desc: "Киргизия", price: 16000, img: "https://images.pexels.com/photos/4346403/pexels-photo-4346403.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 12, name: "Минск", desc: "Беларусь", price: 5000, img: "https://images.pexels.com/photos/2836263/pexels-photo-2836263.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 12, name: "Бухара", desc: "Древность", price: 21000, img: "https://images.pexels.com/photos/5354929/pexels-photo-5354929.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 12, name: "Батуми", desc: "Море", price: 19000, img: "https://images.pexels.com/photos/3525292/pexels-photo-3525292.jpeg?auto=compress&cs=tinysrgb&w=600" },
+
+        // ID 13: В Азию
+        { catId: 13, name: "Бангкок", desc: "Таиланд", price: 45000, img: "https://images.pexels.com/photos/1682691/pexels-photo-1682691.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 13, name: "Токио", desc: "Япония", price: 60000, img: "https://images.pexels.com/photos/2506923/pexels-photo-2506923.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 13, name: "Сеул", desc: "Корея", price: 50000, img: "https://images.pexels.com/photos/2376713/pexels-photo-2376713.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 13, name: "Пекин", desc: "Китай", price: 40000, img: "https://images.pexels.com/photos/2412603/pexels-photo-2412603.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 13, name: "Шанхай", desc: "Мегаполис", price: 42000, img: "https://images.pexels.com/photos/169647/pexels-photo-169647.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 13, name: "Ханой", desc: "Вьетнам", price: 48000, img: "https://images.pexels.com/photos/1828892/pexels-photo-1828892.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 13, name: "Сингапур", desc: "Город-сад", price: 55000, img: "https://images.pexels.com/photos/774095/pexels-photo-774095.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 13, name: "Гонконг", desc: "Небоскребы", price: 52000, img: "https://images.pexels.com/photos/1486222/pexels-photo-1486222.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 13, name: "Куала-Лумпур", desc: "Малайзия", price: 46000, img: "https://images.pexels.com/photos/433989/pexels-photo-433989.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 13, name: "Тайбэй", desc: "Тайвань", price: 50000, img: "https://images.pexels.com/photos/2862070/pexels-photo-2862070.jpeg?auto=compress&cs=tinysrgb&w=600" },
+
+        // ID 14: На Запад
+        { catId: 14, name: "Париж", desc: "Франция", price: 40000, img: "https://images.pexels.com/photos/208218/pexels-photo-208218.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 14, name: "Лондон", desc: "Англия", price: 45000, img: "https://images.pexels.com/photos/460672/pexels-photo-460672.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 14, name: "Нью-Йорк", desc: "США", price: 65000, img: "https://images.pexels.com/photos/466685/pexels-photo-466685.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 14, name: "Барселона", desc: "Испания", price: 40000, img: "https://images.pexels.com/photos/819764/pexels-photo-819764.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 14, name: "Амстердам", desc: "Нидерланды", price: 38000, img: "https://images.pexels.com/photos/208736/pexels-photo-208736.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 14, name: "Берлин", desc: "Германия", price: 35000, img: "https://images.pexels.com/photos/1128408/pexels-photo-1128408.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 14, name: "Прага", desc: "Чехия", price: 30000, img: "https://images.pexels.com/photos/1239162/pexels-photo-1239162.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 14, name: "Вена", desc: "Австрия", price: 35000, img: "https://images.pexels.com/photos/371589/pexels-photo-371589.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 14, name: "Лиссабон", desc: "Португалия", price: 40000, img: "https://images.pexels.com/photos/4039924/pexels-photo-4039924.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 14, name: "Будапешт", desc: "Венгрия", price: 30000, img: "https://images.pexels.com/photos/2350352/pexels-photo-2350352.jpeg?auto=compress&cs=tinysrgb&w=600" }
+    ];
+
+    let sliderActiveIndex = 0; 
+    const sliderWrapper = document.getElementById('sliderWrapper');
+    const categoryLabel = document.getElementById('categoryLabel');
+
+    function renderSlider() {
+        sliderWrapper.querySelectorAll('.slide-card').forEach(el => el.remove()); 
+        categories.forEach((cat, index) => {
+            const el = document.createElement('div');
+            el.className = 'slide-card hidden';
+            el.style.backgroundImage = `url(${cat.img})`;
+            el.id = `slide-${index}`;
+            sliderWrapper.appendChild(el);
+        });
+        const leftBtn = document.createElement('div'); leftBtn.className = 'slider-nav-btn left'; leftBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>'; leftBtn.onclick = prevSlideSlider;
+        const rightBtn = document.createElement('div'); rightBtn.className = 'slider-nav-btn right'; rightBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>'; rightBtn.onclick = nextSlideSlider;
+        sliderWrapper.appendChild(leftBtn); sliderWrapper.appendChild(rightBtn);
+        updateSliderClasses();
+    }
+
+    function updateSliderClasses() {
+        const total = categories.length;
+        const prevIndex = (sliderActiveIndex - 1 + total) % total;
+        const nextIndex = (sliderActiveIndex + 1) % total;
+        categories.forEach((cat, i) => {
+            const el = document.getElementById(`slide-${i}`); el.className = 'slide-card hidden'; 
+            if (i === sliderActiveIndex) el.className = 'slide-card active';
+            else if (i === prevIndex) el.className = 'slide-card prev';
+            else if (i === nextIndex) el.className = 'slide-card next';
+        });
+        categoryLabel.innerText = categories[sliderActiveIndex].name;
+        selectedCategoryIndex = categories[sliderActiveIndex].id;
+    }
+    function nextSlideSlider() { sliderActiveIndex = (sliderActiveIndex + 1) % categories.length; updateSliderClasses(); }
+    function prevSlideSlider() { sliderActiveIndex = (sliderActiveIndex - 1 + categories.length) % categories.length; updateSliderClasses(); }
+    renderSlider();
+
+    function renderFeed() {
+        const currentCat = categories.find(c => c.id === selectedCategoryIndex);
+        document.getElementById('feedTitle').innerText = currentCat.name + " " + selectedDurationText.toLowerCase();
+        const tagContainer = document.getElementById('tagsList'); tagContainer.innerHTML = '';
+        const allTags = ["Все", ...currentCat.filters];
+        allTags.forEach(tag => {
+            const el = document.createElement('div'); el.className = 'tag-pill'; if(tag === 'Все') el.classList.add('active'); el.innerText = tag;
+            el.onclick = () => filterFeed(tag, el); tagContainer.appendChild(el);
+        });
+        const items = allDestinations.filter(d => d.catId === selectedCategoryIndex);
+        renderGrid(items);
+    }
+    
+    function renderGrid(cities) {
+        const grid = document.getElementById('feedGrid'); grid.innerHTML = '';
+        cities.forEach(city => {
+            const item = document.createElement('div'); item.className = 'masonry-item';
+            if (city.name === "Владивосток") item.onclick = () => openStoryForCity(1); 
+            else if (city.name === "Казань") item.onclick = () => openStoryForCity(0);
+            else if (city.name === "Калининград") item.onclick = () => openStoryForCity(2);
+            
+            // Recalculate price based on toggle
+            const displayPrice = getFormattedPrice(city.price);
+            const displayIcon = getBadgeIcons();
+
+            const h = Math.floor(Math.random() * (240 - 160 + 1) + 160); 
+            item.innerHTML = `<div class="m-card-img-wrap" style="height:${h}px"><img src="${city.img}" class="m-card-img" style="height:100%;object-fit:cover;"><div class="m-price-badge">${displayIcon} ${displayPrice}</div></div><div class="m-city-name">${city.name}</div><div class="m-city-desc">${city.desc}</div>`;
+            grid.appendChild(item);
+        });
+    }
+
+    function filterFeed(tag, btnElement) {
+        document.querySelectorAll('.tag-pill').forEach(t => t.classList.remove('active')); btnElement.classList.add('active');
+        const items = allDestinations.filter(d => d.catId === selectedCategoryIndex);
+        if (tag === 'Все') renderGrid(items); 
+        else {
+             renderGrid(items); // Mock filter behavior
+        }
+    }
+
+    /* --- NEW JS FOR STORY BUTTONS --- */
+    function openOverlay(id) { document.getElementById(id).classList.add('active'); }
+    function closeOverlay(id) { document.getElementById(id).classList.remove('active'); }
+    function openTicketsSheet() { openOverlay('sheet-tickets'); }
+    function openHotelsSheet() { openOverlay('sheet-hotels'); }
+    function openDetailsSheet() { openOverlay('sheet-details-vlad'); }
+    function openMapSheet() { openOverlay('sheet-map'); }
+    function openSuccessTicket() { document.getElementById('modal-success-ticket').classList.add('active'); }
+    function openSuccessHotel() { document.getElementById('modal-success-hotel').classList.add('active'); }
+    function openSuccessPlan(isFromStoryControls = false) {
+        const popup = document.getElementById('modal-success-plan');
+        const textEl = popup.querySelector('.sp-text');
+        const btnEl = popup.querySelector('.cta-btn');
+        if (isFromStoryControls) { textEl.innerHTML = 'Добавили поездку в ваши планы.<br><br>Вы можете закончить тестирование. Большое спасибо!'; btnEl.innerText = 'Вернуться к просмотру направлений'; } 
+        else { textEl.innerHTML = 'Добавили поездку в ваши планы.<br><br>Тестирование успешно окончено. Большое спасибо!'; btnEl.innerText = 'Отлично'; }
+        popup.classList.add('active');
+    }
+    function closeSuccess(id) { document.getElementById(id).classList.remove('active'); }
+    
+    // MAP LOGIC
+    function toggleMapPin(pin) {
+        // 1. Zoom Pin
+        const alreadyActive = pin.classList.contains('active-zoom');
+        // Reset all
+        document.querySelectorAll('.map-pin').forEach(p => p.classList.remove('active-zoom'));
+        document.getElementById('mapPinDescBar').classList.remove('active');
+
+        if (!alreadyActive) {
+            pin.classList.add('active-zoom');
+            // 2. Show Description
+            const title = pin.getAttribute('data-title');
+            const desc = pin.getAttribute('data-desc');
+            document.getElementById('mapPinTitle').innerText = title;
+            document.getElementById('mapPinDesc').innerText = desc;
+            document.getElementById('mapPinDescBar').classList.add('active');
+        }
+    }
+    
+    function closePinDesc() {
+        document.querySelectorAll('.map-pin').forEach(p => p.classList.remove('active-zoom'));
+        document.getElementById('mapPinDescBar').classList.remove('active');
+    }
+
+</script>
+
+</body>
+</html>
