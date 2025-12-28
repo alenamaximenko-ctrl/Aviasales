@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aviasales: Final Release v37</title>
+    <title>Aviasales: Final Polish v39</title>
     <style>
         /* --- DESIGN TOKENS --- */
         :root {
@@ -194,7 +194,8 @@
 
         /* --- DETAILS SCREEN --- */
         .details-content { padding: 90px 20px 40px; overflow-y: auto; height: 100%; display: flex; flex-direction: column; }
-        .details-title { font-size: 32px; font-weight: 800; margin-bottom: 24px; margin-top: 10px; line-height: 1.1; }
+        .details-title { font-size: 32px; font-weight: 800; margin-bottom: 24px; margin-top: 0px; line-height: 1.1; }
+        .details-subtitle { font-size: 24px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; line-height: 1.1; }
         .dates-row { display: flex; gap: 12px; margin-bottom: 32px; }
         .date-btn { flex: 1; background: #F3F4F6; color: var(--text-primary); padding: 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
         .date-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
@@ -237,11 +238,13 @@
         .story-track-container { width: 100%; height: 100%; overflow: hidden; position: relative; }
         .story-track { height: 300%; width: 100%; display: flex; flex-direction: column; transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
         .story-page { height: 100%; width: 100%; position: relative; background-size: cover; background-position: center; }
+        /* Support for Video Background */
+        .story-media { position: absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-1; }
+        
         .story-indicators { position: absolute; top: 50px; left: 16px; right: 16px; display: flex; gap: 4px; z-index: 20; }
         .indicator { height: 3px; flex: 1; background: rgba(255,255,255,0.3); border-radius: 2px; transition: background 0.1s; }
         .indicator.active { background: white; }
         
-        /* Updated Story Header Layout (Lifted by 30px from 140px to 110px) */
         .story-overlay-top { 
             position: absolute; top: 0; left: 0; width: 100%; padding: 110px 16px 20px; 
             background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent); 
@@ -416,6 +419,27 @@
         .map-pin-desc-bar.active { display: flex; }
         @keyframes slide-up { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         
+        /* AI Section Styles */
+        .ai-section { padding: 0 16px; margin-top: 24px; margin-bottom: 32px; display: flex; flex-direction: column; gap: 16px; }
+        .ai-header { font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 6px; }
+        .ai-cards-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; }
+        .ai-cards-row::-webkit-scrollbar { display: none; }
+        .ai-card {
+            background: #F3F4F6; min-width: 140px; padding: 16px; border-radius: 16px;
+            display: flex; flex-direction: column; justify-content: space-between; height: 120px; cursor: pointer;
+        }
+        .ai-card-icon { font-size: 24px; margin-bottom: 8px; }
+        .ai-card-text { font-size: 13px; font-weight: 600; line-height: 1.3; }
+        .blue-banner-btn {
+            background: #0C73FE; color: white; border-radius: 16px; padding: 16px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 20px rgba(12, 115, 254, 0.25);
+        }
+
+        /* AI Sheet Styles */
+        .ai-sheet-input-wrap { background: #F3F4F6; border-radius: 16px; padding: 12px; margin-bottom: 20px; }
+        .ai-sheet-input { width: 100%; border: none; background: transparent; font-size: 16px; outline: none; resize: none; font-family: inherit; }
+        
         /* Success Popup */
         .success-popup { position: absolute; top: 0; left:0; width: 100%; height: 100%; z-index: 1000; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
         .success-popup.active { display: flex; }
@@ -498,7 +522,8 @@
     <div id="screen-details" class="screen">
         <div class="back-btn" onclick="closeDetails()" style="top:50px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
         <div class="details-content">
-            <h1 class="details-title">А можно<br>поподробнее?</h1>
+            <div id="details-subtitle" style="font-size:18px; color:#818C99; font-weight:700; margin-bottom:4px;"></div>
+            <h1 class="details-title" style="margin-top:0;">А можно<br>поподробнее?</h1>
             <div class="dates-row">
                 <div class="date-btn" onclick="openCalendar('dep')"><span class="date-label">Туда</span><span class="date-value" id="dateStartDisplay">Не важно</span></div>
                 <div class="date-btn" onclick="openCalendar('ret')"><span class="date-label">Обратно</span><span class="date-value" id="dateEndDisplay">Не важно</span></div>
@@ -537,7 +562,8 @@
         <!-- ONBOARDING HINT -->
         <div id="story-hint" class="story-hint-overlay">
             <div class="hint-content">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4.025 20.5C3.04167 19.3 2.29167 17.975 1.775 16.525C1.25833 15.075 1 13.5667 1 12C1 10.4333 1.25833 8.925 1.775 7.475C2.29167 6.025 3.04167 4.7 4.025 3.5H2.75C2.53333 3.5 2.35433 3.429 2.213 3.287C2.07167 3.145 2.00067 2.966 2 2.75C1.99933 2.534 2.07033 2.355 2.213 2.213C2.35567 2.071 2.53467 2 2.75 2H6C6.28333 2 6.521 2.096 6.713 2.288C6.905 2.48 7.00067 2.71733 7 3V6.25C7 6.46667 6.929 6.646 6.787 6.788C6.645 6.93 6.466 7.00067 6.25 7C6.034 6.99933 5.855 6.92833 5.713 6.787C5.571 6.64567 5.5 6.46667 5.5 6.25V4.1C4.53333 5.2 3.79167 6.425 3.275 7.775C2.75833 9.125 2.5 10.5333 2.5 12C2.5 13.4667 2.75833 14.875 3.275 16.225C3.79167 17.575 4.53333 18.8 5.5 19.9V17.75C5.5 17.5333 5.571 17.3543 5.713 17.213C5.855 17.0717 6.034 17.0007 6.25 17C6.466 16.9993 6.64533 17.0703 6.788 17.213C6.93067 17.3557 7.00133 17.5347 7 17.75V21C7 21.2833 6.904 21.521 6.712 21.713C6.52 21.905 6.28267 22.0007 6 22H2.75C2.53333 22 2.35433 21.929 2.213 21.787C2.07167 21.645 2.00067 21.466 2 21.25C1.99933 21.034 2.07033 20.855 2.213 20.713C2.35567 20.571 2.53467 20.5 2.75 20.5H4.025ZM16.45 20.825C16.0667 20.9583 15.6793 21.021 15.288 21.013C14.8967 21.005 14.5173 20.909 14.15 20.725L8.5 18.1C8.25 17.9833 8.075 17.796 7.975 17.538C7.875 17.28 7.88333 17.0257 8 16.775L8.05 16.675C8.21667 16.3417 8.45 16.071 8.75 15.863C9.05 15.655 9.38333 15.534 9.75 15.5L11.45 15.375L8.65 7.7C8.55 7.43333 8.55833 7.179 8.675 6.937C8.79167 6.695 8.98333 6.52433 9.25 6.425C9.51667 6.32567 9.77067 6.334 10.012 6.45C10.2533 6.566 10.4243 6.75767 10.525 7.025L13.775 15.95C13.8917 16.2667 13.8583 16.5627 13.675 16.838C13.4917 17.1133 13.2333 17.2673 12.9 17.3L11.725 17.375L15 18.9C15.1167 18.95 15.2417 18.9793 15.375 18.988C15.5083 18.9967 15.6333 18.984 15.75 18.95L19.675 17.525C20.1917 17.3417 20.5667 16.9957 20.8 16.487C21.0333 15.9783 21.0583 15.466 20.875 14.95L19.5 11.2C19.4 10.9333 19.4083 10.679 19.525 10.437C19.6417 10.195 19.8333 10.0243 20.1 9.925C20.3667 9.82567 20.6207 9.834 20.862 9.95C21.1033 10.066 21.2743 10.2577 21.375 10.525L22.75 14.275C23.1333 15.325 23.0957 16.3457 22.637 17.337C22.1783 18.3283 21.4243 19.016 20.375 19.4L16.45 20.825ZM12.85 10.425C12.75 10.1583 12.7583 9.904 12.875 9.662C12.9917 9.42 13.1833 9.24933 13.45 9.15C13.7167 9.05067 13.971 9.059 14.213 9.175C14.455 9.291 14.6257 9.48267 14.725 9.75L15.75 12.55C15.85 12.8167 15.8417 13.075 15.725 13.325C15.6083 13.575 15.4167 13.75 15.15 13.85C14.8833 13.95 14.625 13.9417 14.375 13.825C14.125 13.7083 13.95 13.5167 13.85 13.25L12.85 10.425ZM16 10.35C15.9 10.0833 15.9083 9.82933 16.025 9.588C16.1417 9.34667 16.3333 9.17567 16.6 9.075C16.8667 8.97433 17.1207 8.98267 17.362 9.1C17.6033 9.21733 17.7743 9.409 17.875 9.675L18.55 11.55C18.65 11.8167 18.6457 12.071 18.537 12.313C18.4283 12.555 18.241 12.7257 17.975 12.825C17.709 12.9243 17.4507 12.916 17.2 12.8C16.9493 12.684 16.7743 12.4923 16.675 12.225L16 10.35Z" fill="white"/></svg>
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4.025 20.5C3.04167 19.3 2.29167 17.975 1.775 16.525C1.25833 15.075 1 13.5667 1 12C1 10.4333 1.25833 8.925 1.775 7.475C2.29167 6.025 3.04167 4.7 4.025 3.5H2.75C2.53333 3.5 2.35433 3.429 2.213 3.287C2.07167 3.145 2.00067 2.966 2 2.75C1.99933 2.534 2.07033 2.355 2.213 2.213C2.35567 2.071 2.53467 2 2.75 2H6C6.28333 2 6.521 2.096 6.713 2.288C6.905 2.48 7.00067 2.71733 7 3V6.25C7 6.46667 6.929 6.646 6.787 6.788C6.645 6.93 6.466 7.00067 6.25 7C6.034 6.99933 5.855 6.92833 5.713 6.787C5.571 6.64567 5.5 6.46667 5.5 6.25V4.1C4.53333 5.2 3.79167 6.425 3.275 7.775C2.75833 9.125 2.5 10.5333 2.5 12C2.5 13.4667 2.75833 14.875 3.275 16.225C3.79167 17.575 4.53333 18.8 5.5 19.9V17.75C5.5 17.5333 5.571 17.3543 5.713 17.213C5.855 17.0717 6.034 17.0007 6.25 17C6.466 16.9993 6.64533 17.0703 6.788 17.213C6.93067 17.3557 7.00133 17.5347 7 17.75V21C7 21.2833 6.904 21.521 6.712 21.713C6.52 21.905 6.28267 22.0007 6 22H2.75C2.53333 22 2.35433 21.929 2.213 21.787C2.07167 21.645 2.00067 21.466 2 21.25C1.99933 21.034 2.07033 20.855 2.213 20.713C2.35567 20.571 2.53467 20.5 2.75 20.5H4.025ZM16.45 20.825C16.0667 20.9583 15.6793 21.021 15.288 21.013C14.8967 21.005 14.5173 20.909 14.15 20.725L8.5 18.1C8.25 17.9833 8.075 17.796 7.975 17.538C7.875 17.28 7.88333 17.0257 8 16.775L8.05 16.675C8.21667 16.3417 8.45 16.071 8.75 15.863C9.05 15.655 9.38333 15.534 9.75 15.5L11.45 15.375L8.65 7.7C8.55 7.43333 8.55833 7.179 8.675 6.937C8.79167 6.695 8.98333 6.52433 9.25 6.425C9.51667 6.32567 9.77067 6.334 10.012 6.45C10.2533 6.566 10.4243 6.75767 10.525 7.025L13.775 15.95C13.8917 16.2667 13.8583 16.5627 13.675 16.838C13.4917 17.1133 13.2333 17.2673 12.9 17.3L11.725 17.375L15 18.9C15.1167 18.95 15.2417 18.9793 15.375 18.988C15.5083 18.9967 15.6333 18.984 15.75 18.95L19.675 17.525C20.1917 17.3417 20.5667 16.9957 20.8 16.487C21.0333 15.9783 21.0583 15.466 20.875 14.95L19.5 11.2C19.4 10.9333 19.4083 10.679 19.525 10.437C19.6417 10.195 19.8333 10.0243 20.1 9.925C20.3667 9.82567 20.6207 9.834 20.862 9.95C21.1033 10.066 21.2743 10.2577 21.375 10.525L22.75 14.275C23.1333 15.325 23.0957 16.3457 22.637 17.337C22.1783 18.3283 21.4243 19.016 20.375 19.4L16.45 20.825ZM12.85 10.425C12.75 10.1583 12.7583 9.904 12.875 9.662C12.9917 9.42 13.1833 9.24933 13.45 9.15C13.7167 9.05067 13.971 9.059 14.213 9.175C14.455 9.291 14.6257 9.48267 14.725 9.75L15.75 12.55C15.85 12.8167 15.8417 13.075 15.725 13.325C15.6083 13.575 15.4167 13.75 15.15 13.85C14.8833 13.95 14.625 13.9417 14.375 13.825C14.125 13.7083 13.95 13.5167 13.85 13.25L12.85 10.425ZM16 10.35C15.9 10.0833 15.9083 9.82933 16.025 9.588C16.1417 9.34667 16.3333 9.17567 16.6 9.075C16.8667 8.97433 17.1207 8.98267 17.362 9.1C17.6033 9.21733 17.7743 9.409 17.875 9.675L18.55 11.55C18.65 11.8167 18.6457 12.071 18.537 12.313C18.4283 12.555 18.241 12.7257 17.975 12.825C17.709 12.9243 17.4507 12.916 17.2 12.8C16.9493 12.684 16.7743 12.4923 16.675 12.225L16 10.35Z" fill="white"/>
+</svg>
                 <div class="hint-text">Больше вариантов</div>
             </div>
         </div>
@@ -669,6 +695,34 @@
             <div class="detail-row"><div class="detail-icon">💃</div><div class="detail-text"><div class="detail-title">Локальное</div><div class="detail-sub">Узнать, куда ходят местные</div></div><svg width="20" height="20" fill="none" stroke="#ccc" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
             <div class="detail-row"><div class="detail-icon">📸</div><div class="detail-text"><div class="detail-title">Инстаместа</div><div class="detail-sub">Когда приехать, куда встать и как собрать все лайки</div></div><svg width="20" height="20" fill="none" stroke="#ccc" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
             <div class="detail-row"><div class="detail-icon">🛎️</div><div class="detail-text"><div class="detail-title">Рестораны и бары</div><div class="detail-sub">Где красиво завтракать</div></div><svg width="20" height="20" fill="none" stroke="#ccc" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+
+            <!-- AI SECTION -->
+            <div class="ai-section">
+                <div class="blue-banner-btn" onclick="openAISheet()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    Создать подборку
+                </div>
+
+                <div>
+                    <div class="ai-header">Узнать у нейросети <svg width="16" height="16" viewBox="0 0 24 24" fill="#0C73FE"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+                    <div style="height:12px;"></div>
+                    <div class="ai-cards-row">
+                        <div class="ai-card" onclick="openAISheet()">
+                            <div class="ai-card-icon">🚕</div>
+                            <div class="ai-card-text">Как вызвать такси?</div>
+                        </div>
+                        <div class="ai-card" onclick="openAISheet()">
+                            <div class="ai-card-icon">🚌</div>
+                            <div class="ai-card-text">Как добраться от аэропорта?</div>
+                        </div>
+                        <div class="ai-card" onclick="openAISheet()">
+                            <div class="ai-card-icon">☀️</div>
+                            <div class="ai-card-text">Когда лучше ехать?</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="height: 100px;"></div>
         </div>
     </div>
 
@@ -695,7 +749,7 @@
             <div class="map-pin" style="top:30%; left:70%;" onclick="toggleMapPin(this)" data-title="Золотой мост" data-desc="Вантовый мост через бухту Золотой Рог, символ современного Владивостока."><img src="https://images.pexels.com/photos/19930818/pexels-photo-19930818.jpeg?auto=compress&cs=tinysrgb&w=400"></div>
             <div class="map-pin" style="top:60%; left:20%;" onclick="toggleMapPin(this)" data-title="Токаревский маяк" data-desc="Старейший маяк на Дальнем Востоке, где можно встретить пятнистых тюленей."><img src="https://images.pexels.com/photos/1983044/pexels-photo-1983044.jpeg?auto=compress&cs=tinysrgb&w=400"></div>
             <div class="map-pin" style="top:20%; left:50%;" onclick="toggleMapPin(this)" data-title="Ресторан Zuma" data-desc="Легендарный ресторан паназиатской кухни, известный своими морепродуктами."><img src="https://images.pexels.com/photos/3098592/pexels-photo-3098592.jpeg?auto=compress&cs=tinysrgb&w=400"></div>
-            <div class="map-pin" style="top:75%; left:80%;" onclick="toggleMapPin(this)" data-title="Набережная" data-desc="Идеальное место для прогулок, встреч закатов и отдыха у моря."><img src="https://images.pexels.com/photos/2166553/pexels-photo-2166553.jpeg?auto=compress&cs=tinysrgb&w=400"></div>
+            <div class="map-pin" style="top:75%; left:80%;" onclick="toggleMapPin(this)" data-title="Набережная" data-desc="Идеальное место для прогулок, встреч закатов и отдыха у моря."><img src="https://images.pexels.com/photos/1833349/pexels-photo-1833349.jpeg?auto=compress&cs=tinysrgb&w=400"></div>
         </div>
         
         <!-- PIN DESCRIPTION CARD -->
@@ -705,8 +759,37 @@
             <button class="cta-btn" style="padding:12px; margin-top:8px; font-size:14px;" onclick="closePinDesc()">Понятно</button>
         </div>
     </div>
+
+    <!-- AI SELECTION SHEET -->
+    <div id="sheet-ai-selection" class="sheet-overlay" onclick="closeSheet('sheet-ai-selection')">
+        <div class="bottom-sheet" onclick="event.stopPropagation()">
+            <div class="sheet-title" style="text-align:left; font-size:24px; line-height:1.2; margin-bottom:16px;">Создать подборку<br>с помощью нейросети <svg width="20" height="20" viewBox="0 0 24 24" fill="#0C73FE"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+            
+            <div class="ai-cards-row" style="margin-bottom:20px;">
+                <div class="ai-card" style="background:#F2F3F5; min-width:120px; height:100px;">
+                    <div style="font-size:20px;">🏛️</div>
+                    <div style="font-size:12px; font-weight:600;">Какие музеи посетить</div>
+                </div>
+                <div class="ai-card" style="background:#F2F3F5; min-width:120px; height:100px;">
+                    <div style="font-size:20px;">🧸</div>
+                    <div style="font-size:12px; font-weight:600;">Куда сходить с детьми</div>
+                </div>
+                 <div class="ai-card" style="background:#F2F3F5; min-width:120px; height:100px;">
+                    <div style="font-size:20px;">🚆</div>
+                    <div style="font-size:12px; font-weight:600;">Куда съездить на 1 день</div>
+                </div>
+            </div>
+
+            <div class="ai-sheet-input-wrap">
+                <textarea class="ai-sheet-input" rows="3" placeholder="Опишите, какую подборку вы хотите..."></textarea>
+            </div>
+            
+            <button class="cta-btn" onclick="closeSheet('sheet-ai-selection')">Сгенерировать</button>
+            <div style="text-align:center; font-size:11px; color:#999; margin-top:12px;">Тестовая версия нейросети ⓘ</div>
+        </div>
+    </div>
     
-    <!-- SUB SHEET: MAP DETAIL (Hidden/Replaced by inline desc) -->
+    <!-- SUB SHEET: MAP DETAIL -->
     <div id="mapDetailSheet" class="sheet-overlay" onclick="closeSheet('mapDetailSheet')"><div class="bottom-sheet" onclick="event.stopPropagation()"><div style="display:flex; justify-content:center; margin-bottom:12px;"><div style="width:40px; height:4px; background:#E0E0E0; border-radius:2px;"></div></div><h3 style="margin-bottom:8px;">Музей истории Дальнего Востока</h3><p style="color:#666; font-size:14px; line-height:1.5; margin-bottom:20px;">Что объединяет японский банк, институт рыбного хозяйства и парикмахерскую? Все они находились в этом здании.</p><button class="cta-btn" onclick="closeSheet('mapDetailSheet')">Понятно</button></div></div>
 
     <!-- POPUPS -->
@@ -725,7 +808,12 @@
     // Navigation
     function openPicker() { app.classList.add('show-picker'); }
     function closePicker() { app.classList.remove('show-picker'); }
-    function openDetails() { app.classList.add('show-details'); }
+    function openDetails() { 
+        // Set Header Subtitle
+        const catName = categories.find(c => c.id === selectedCategoryIndex)?.name || "Категория";
+        document.getElementById('details-subtitle').innerText = `${catName} • ${selectedDurationText}`;
+        app.classList.add('show-details'); 
+    }
     function closeDetails() { app.classList.remove('show-details'); }
     function openFeed() { app.classList.add('show-feed'); renderFeed(); }
     function closeFeed() { app.classList.remove('show-feed'); }
@@ -735,31 +823,31 @@
         {
             city: "Казань", price: 4500,
             slides: [
-                { img: "https://images.pexels.com/photos/9293684/pexels-photo-9293684.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Мечеть Кул-Шариф — сердце Казанского Кремля.", tags: ["Архитектура", "История"] },
-                { img: "https://images.pexels.com/photos/10589367/pexels-photo-10589367.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Прогулки по улице Баумана в любое время года.", tags: ["Прогулки", "Атмосфера"] },
-                { img: "https://images.pexels.com/photos/29143171/pexels-photo-29143171.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Чак-чак, эчпочмак и татарское гостеприимство.", tags: ["Гастротуризм", "Еда"] },
-                { img: "https://images.pexels.com/photos/15235039/pexels-photo-15235039.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Вечерние огни города завораживают.", tags: ["Ночной город"] },
-                { img: "https://images.pexels.com/photos/8538934/pexels-photo-8538934.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Национальный культурный центр и набережная.", tags: ["Культура", "Виды"] }
+                { type: 'img', src: "https://images.pexels.com/photos/9293684/pexels-photo-9293684.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Мечеть Кул-Шариф — сердце Казанского Кремля.", tags: ["Архитектура", "История"] },
+                { type: 'img', src: "https://images.pexels.com/photos/10589367/pexels-photo-10589367.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Прогулки по улице Баумана в любое время года.", tags: ["Прогулки", "Атмосфера"] },
+                { type: 'img', src: "https://images.pexels.com/photos/29143171/pexels-photo-29143171.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Чак-чак, эчпочмак и татарское гостеприимство.", tags: ["Гастротуризм", "Еда"] },
+                { type: 'img', src: "https://images.pexels.com/photos/15235039/pexels-photo-15235039.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Вечерние огни города завораживают.", tags: ["Ночной город"] },
+                { type: 'img', src: "https://images.pexels.com/photos/8538934/pexels-photo-8538934.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Национальный культурный центр и набережная.", tags: ["Культура", "Виды"] }
             ]
         },
         {
             city: "Владивосток", price: 18000,
             slides: [
-                { img: "https://images.pexels.com/photos/10996000/pexels-photo-10996000.jpeg?auto=compress&cs=tinysrgb&w=1200", text: "Прогуляться к столетнему действующему маяку на Босфоре Восточном", tags: ["Архитектура", "История", "Виды"] },
-                { img: "https://images.pexels.com/photos/7938899/pexels-photo-7938899.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Искупаться в бодрящем Японском море", tags: ["Пляжи", "Походы", "Дикая природа"] },
-                { img: "https://images.pexels.com/photos/19930818/pexels-photo-19930818.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Выбрать отель с видом на Золотой мост", tags: ["Архитектура", "Виды"] },
-                { img: "https://images.pexels.com/photos/1983044/pexels-photo-1983044.jpeg?auto=compress&cs=tinysrgb&w=800", text: "На краю света дуют такие ветра, что их не стоит упускать", tags: ["Движ", "Под парусом"] },
-                { img: "https://images.pexels.com/photos/3098592/pexels-photo-3098592.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Легендарный краб, гребешок, морской ёж или северные креветки", tags: ["Гастротуризм", "Морепродукты"] }
+                { type: 'video', src: '1.mp4', text: "Прогуляться к столетнему действующему маяку на Босфоре Восточном", tags: ["Архитектура", "История", "Виды"] },
+                { type: 'img', src: "https://images.pexels.com/photos/7938899/pexels-photo-7938899.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Искупаться в бодрящем Японском море", tags: ["Пляжи", "Походы", "Дикая природа"] },
+                { type: 'video', src: '3.mp4', text: "Выбрать отель с видом на Золотой мост", tags: ["Архитектура", "Виды"] },
+                { type: 'img', src: "https://images.pexels.com/photos/1983044/pexels-photo-1983044.jpeg?auto=compress&cs=tinysrgb&w=800", text: "На краю света дуют такие ветра, что их не стоит упускать", tags: ["Движ", "Под парусом"] },
+                { type: 'video', src: '5.mp4', text: "Легендарный краб, гребешок, морской ёж или северные креветки", tags: ["Гастротуризм", "Морепродукты"] }
             ]
         },
         {
             city: "Калининград", price: 5800,
             slides: [
-                { img: "https://images.pexels.com/photos/12369759/pexels-photo-12369759.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Кафедральный собор и могила Канта.", tags: ["История", "Архитектура"] },
-                { img: "https://images.pexels.com/photos/10380740/pexels-photo-10380740.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Прогулки по Рыбной деревне.", tags: ["Атмосфера", "Прогулки"] },
-                { img: "https://images.pexels.com/photos/8802009/pexels-photo-8802009.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Атмосфера старого Кенигсберга.", tags: ["История"] },
-                { img: "https://images.pexels.com/photos/10594420/pexels-photo-10594420.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Балтийское море и дюны рядом.", tags: ["Природа", "Море"] },
-                { img: "https://images.pexels.com/photos/9929998/pexels-photo-9929998.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Уютные кофейни и европейская архитектура.", tags: ["Кофе", "Европа"] }
+                { type: 'img', src: "https://images.pexels.com/photos/12369759/pexels-photo-12369759.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Кафедральный собор и могила Канта.", tags: ["История", "Архитектура"] },
+                { type: 'img', src: "https://images.pexels.com/photos/10380740/pexels-photo-10380740.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Прогулки по Рыбной деревне.", tags: ["Атмосфера", "Прогулки"] },
+                { type: 'img', src: "https://images.pexels.com/photos/8802009/pexels-photo-8802009.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Атмосфера старого Кенигсберга.", tags: ["История"] },
+                { type: 'img', src: "https://images.pexels.com/photos/10594420/pexels-photo-10594420.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Балтийское море и дюны рядом.", tags: ["Природа", "Море"] },
+                { type: 'img', src: "https://images.pexels.com/photos/9929998/pexels-photo-9929998.jpeg?auto=compress&cs=tinysrgb&w=800", text: "Уютные кофейни и европейская архитектура.", tags: ["Кофе", "Европа"] }
             ]
         }
     ];
@@ -786,6 +874,7 @@
         stories.forEach((story, idx) => {
             const page = document.createElement('div'); page.className = 'story-page'; page.id = `story-city-${idx}`;
             page.innerHTML = `
+                <div class="story-media" id="media-${idx}"></div>
                 <div class="story-overlay-top">
                      <div class="story-indicators" id="indicators-${idx}">${[...Array(5)].map((_, i) => `<div class="indicator ${i===0?'active':''}"></div>`).join('')}</div>
                      <div class="story-badge">${getBadgeIcons('white')} ${getFormattedPrice(story.price)}</div>
@@ -794,9 +883,11 @@
                 <div class="story-nav-left" onclick="prevSlide(${idx})"></div>
                 <div class="story-nav-right" onclick="nextSlide(${idx})"></div>
                 <div class="story-overlay-bottom"><div class="story-tags" id="tags-${idx}"></div><div class="story-desc" id="desc-${idx}"></div></div>`;
-            storyTrack.appendChild(page); updateSlideUI(idx, 0); 
+            storyTrack.appendChild(page); 
+            updateSlideUI(idx, 0); 
         });
     }
+    
     function handleSwipeStart(y) { startY = y; }
     function handleSwipeEnd(y) { if (startY - y > 50 && currentStoryIndex < stories.length - 1) { currentStoryIndex++; currentSlideIndex=0; updateTrackPosition(); updateSlideUI(currentStoryIndex); } else if (y - startY > 50 && currentStoryIndex > 0) { currentStoryIndex--; currentSlideIndex=0; updateTrackPosition(); updateSlideUI(currentStoryIndex); } }
     storyTrack.addEventListener('touchstart', (e) => handleSwipeStart(e.touches[0].clientY)); storyTrack.addEventListener('touchend', (e) => handleSwipeEnd(e.changedTouches[0].clientY));
@@ -804,7 +895,23 @@
     function updateTrackPosition() { storyTrack.style.transform = `translateY(-${currentStoryIndex * (100 / stories.length)}%)`; }
     function nextSlide(cityIdx) { if(currentSlideIndex < 4) currentSlideIndex++; updateSlideUI(cityIdx); }
     function prevSlide(cityIdx) { if(currentSlideIndex > 0) currentSlideIndex--; updateSlideUI(cityIdx); }
-    function updateSlideUI(cityIdx, slideIdx = currentSlideIndex) { currentSlideIndex = slideIdx; const data = stories[cityIdx].slides[currentSlideIndex]; const page = document.getElementById(`story-city-${cityIdx}`); if(page) page.style.backgroundImage = `url(${data.img})`; const desc = document.getElementById(`desc-${cityIdx}`); if(desc) desc.innerText = data.text; const tagsContainer = document.getElementById(`tags-${cityIdx}`); if(tagsContainer && data.tags) { tagsContainer.innerHTML = data.tags.map(t => `<span class="s-tag">${capitalize(t)}</span>`).join(''); } const indicators = document.getElementById(`indicators-${cityIdx}`)?.children; if(indicators) { for(let i=0; i<5; i++) { indicators[i].classList.toggle('active', i === currentSlideIndex); } } }
+    
+    function updateSlideUI(cityIdx, slideIdx = currentSlideIndex) { 
+        currentSlideIndex = slideIdx; 
+        const data = stories[cityIdx].slides[currentSlideIndex]; 
+        const mediaContainer = document.getElementById(`media-${cityIdx}`);
+        
+        // Render Media (Video or Img)
+        if (data.type === 'video') {
+            mediaContainer.innerHTML = `<video autoplay muted loop playsinline class="story-media" src="${data.src}"></video>`;
+        } else {
+            mediaContainer.innerHTML = `<img class="story-media" src="${data.src}">`;
+        }
+        
+        const desc = document.getElementById(`desc-${cityIdx}`); if(desc) desc.innerText = data.text; 
+        const tagsContainer = document.getElementById(`tags-${cityIdx}`); if(tagsContainer && data.tags) { tagsContainer.innerHTML = data.tags.map(t => `<span class="s-tag">${capitalize(t)}</span>`).join(''); } 
+        const indicators = document.getElementById(`indicators-${cityIdx}`)?.children; if(indicators) { for(let i=0; i<5; i++) { indicators[i].classList.toggle('active', i === currentSlideIndex); } } 
+    }
     
     // ONBOARDING HINT LOGIC
     let hintShown = false;
@@ -822,21 +929,8 @@
         if (!hintShown) {
             const hint = document.getElementById('story-hint');
             hint.classList.add('active');
-            
-            // Add one-time listener to remove hint on any interaction
-            const removeHint = () => {
-                hint.classList.remove('active');
-                hintShown = true;
-                // Remove listeners to avoid memory leaks
-                document.removeEventListener('click', removeHint);
-                document.removeEventListener('touchstart', removeHint);
-            };
-            
-            // Short timeout to ensure the click that opened the story doesn't immediately close the hint
-            setTimeout(() => {
-                document.addEventListener('click', removeHint);
-                document.addEventListener('touchstart', removeHint);
-            }, 100);
+            const removeHint = () => { hint.classList.remove('active'); hintShown = true; document.removeEventListener('click', removeHint); document.removeEventListener('touchstart', removeHint); };
+            setTimeout(() => { document.addEventListener('click', removeHint); document.addEventListener('touchstart', removeHint); }, 100);
         }
     }
 
@@ -864,7 +958,30 @@
     }
 
     document.getElementById('budgetSlider').addEventListener('input', (e) => { document.getElementById('budgetValue').innerText = `10 000 ₽ – ${parseInt(e.target.value).toLocaleString()} ₽`; });
-    document.getElementById('durationSlider').addEventListener('input', (e) => { const val = parseInt(e.target.value); document.getElementById('durationText').innerText = (val <= 2) ? "На пару дней" : (val >= 6 && val <= 7) ? "На недельку" : (val >= 13 && val <= 15) ? "На пару недель" : (val > 21) ? "Надолго" : val + " дней"; selectedDurationText = document.getElementById('durationText').innerText; });
+    
+    function getDaysString(n) {
+        n = Math.abs(n) % 100;
+        var n1 = n % 10;
+        if (n > 10 && n < 20) { return n + " дней"; }
+        if (n1 > 1 && n1 < 5) { return n + " дня"; }
+        if (n1 == 1) { return n + " день"; }
+        return n + " дней";
+    }
+
+    document.getElementById('durationSlider').addEventListener('input', (e) => { 
+        const val = parseInt(e.target.value); 
+        // 1. Logic for text label
+        let labelText = "";
+        if (val <= 2) labelText = "На пару дней";
+        else if (val >= 6 && val <= 7) labelText = "На недельку";
+        else if (val >= 13 && val <= 15) labelText = "На пару недель";
+        else if (val > 21) labelText = "Надолго";
+        else labelText = getDaysString(val);
+        
+        document.getElementById('durationText').innerText = labelText;
+        selectedDurationText = labelText; 
+    });
+
     function openCalendar(type) { activeCal = type; const cr = (type === 'dep') ? depRange : retRange; tempStart = cr.start; tempEnd = cr.end; document.getElementById('calTypeTitle').innerText = (type === 'dep') ? 'вылета' : 'возвращения'; renderCalendar(); openSheet('calendarSheet'); }
     function renderCalendar() { const grid = document.getElementById('calendarGrid'); grid.innerHTML = '<div class="cal-day-name">Пн</div><div class="cal-day-name">Вт</div><div class="cal-day-name">Ср</div><div class="cal-day-name">Чт</div><div class="cal-day-name">Пт</div><div class="cal-day-name">Сб</div><div class="cal-day-name">Вс</div>'; for(let i=0; i<3; i++) grid.innerHTML += '<div class="cal-day"></div>'; for(let day=1; day<=31; day++) { const el = document.createElement('div'); el.className = 'cal-day'; el.innerText = day; if (tempStart && day === tempStart) el.classList.add('start'); if (tempEnd && day === tempEnd) el.classList.add('end'); if (tempStart && tempEnd && day > tempStart && day < tempEnd) el.classList.add('range'); el.onclick = () => handleDateClick(day); grid.appendChild(el); } }
     function handleDateClick(day) { if (!tempStart || (tempStart && tempEnd)) { tempStart = day; tempEnd = null; } else if (day < tempStart) { tempStart = day; } else { tempEnd = day; } renderCalendar(); }
@@ -961,7 +1078,7 @@
 
         // ID 4: Гастрономия
         { catId: 4, name: "Тбилиси", desc: "Вино и хинкали", price: 18000, img: "https://images.pexels.com/photos/624015/pexels-photo-624015.jpeg?auto=compress&cs=tinysrgb&w=600" },
-        { catId: 4, name: "Париж", desc: "Мишлен", price: 40000, img: "https://images.pexels.com/photos/1307698/pexels-photo-1307698.jpeg?auto=compress&cs=tinysrgb&w=600" },
+        { catId: 4, name: "Париж", desc: "Мишлен", price: 40000, img: "https://images.unsplash.com/photo-1307698/pexels-photo-1307698.jpeg?auto=compress&cs=tinysrgb&w=600" },
         { catId: 4, name: "Рим", desc: "Паста и пицца", price: 35000, img: "https://images.pexels.com/photos/208537/pexels-photo-208537.jpeg?auto=compress&cs=tinysrgb&w=600" },
         { catId: 4, name: "Бангкок", desc: "Стрит-фуд", price: 45000, img: "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=600" },
         { catId: 4, name: "Стамбул", desc: "Кебаб и кофе", price: 25000, img: "https://images.pexels.com/photos/3889855/pexels-photo-3889855.jpeg?auto=compress&cs=tinysrgb&w=600" },
@@ -1114,9 +1231,15 @@
     function filterFeed(tag, btnElement) {
         document.querySelectorAll('.tag-pill').forEach(t => t.classList.remove('active')); btnElement.classList.add('active');
         const items = allDestinations.filter(d => d.catId === selectedCategoryIndex);
-        if (tag === 'Все') renderGrid(items); 
-        else {
-             renderGrid(items); // Mock filter behavior
+        
+        if (tag === 'Все') {
+            renderGrid(items); 
+        } else if (tag === "Наше море" && selectedCategoryIndex === 1) {
+            // Special Logic for Russia "Our Sea"
+            const targetCities = ["Владивосток", "Калининград", "Ростов-на-Дону", "Краснодар", "Сочи"];
+            renderGrid(items.filter(item => targetCities.includes(item.name)));
+        } else {
+             renderGrid(items); // Mock filter behavior for others
         }
     }
 
@@ -1139,28 +1262,11 @@
     }
     function closeSuccess(id) { document.getElementById(id).classList.remove('active'); }
     
-    // MAP LOGIC
+    // Toggle Map Pin Zoom
     function toggleMapPin(pin) {
-        // 1. Zoom Pin
-        const alreadyActive = pin.classList.contains('active-zoom');
-        // Reset all
-        document.querySelectorAll('.map-pin').forEach(p => p.classList.remove('active-zoom'));
-        document.getElementById('mapPinDescBar').classList.remove('active');
-
-        if (!alreadyActive) {
-            pin.classList.add('active-zoom');
-            // 2. Show Description
-            const title = pin.getAttribute('data-title');
-            const desc = pin.getAttribute('data-desc');
-            document.getElementById('mapPinTitle').innerText = title;
-            document.getElementById('mapPinDesc').innerText = desc;
-            document.getElementById('mapPinDescBar').classList.add('active');
-        }
-    }
-    
-    function closePinDesc() {
-        document.querySelectorAll('.map-pin').forEach(p => p.classList.remove('active-zoom'));
-        document.getElementById('mapPinDescBar').classList.remove('active');
+        // Close others
+        document.querySelectorAll('.map-pin').forEach(p => { if(p!==pin) p.classList.remove('active-zoom'); });
+        pin.classList.toggle('active-zoom');
     }
 
 </script>
