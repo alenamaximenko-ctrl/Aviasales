@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aviasales: Final Polish v39</title>
+    <title>Aviasales: Final Release v40 (Map Fix)</title>
     <style>
         /* --- DESIGN TOKENS --- */
         :root {
@@ -407,12 +407,14 @@
         .map-pin { position: absolute; width: 44px; height: 44px; border-radius: 12px; border: 2px solid white; overflow: hidden; cursor: pointer; transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 10; }
         .map-pin img { width: 100%; height: 100%; object-fit: cover; }
         .map-pin.active-zoom { width: 320px; height: 320px; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%); z-index: 100; border-radius: 20px; border: 4px solid white; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-        /* Map Pin Description Bar */
+        
+        /* Map Pin Description Bar (Moved Inside Map Container Logic) */
         .map-pin-desc-bar {
             position: absolute; bottom: 20px; left: 16px; right: 16px;
             background: white; border-radius: 16px; padding: 16px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            z-index: 120; display: none;
+            z-index: 200; /* Increased Z-Index to be above everything */
+            display: none;
             flex-direction: column; gap: 4px;
             animation: slide-up 0.3s cubic-bezier(0.25, 1, 0.5, 1);
         }
@@ -656,6 +658,7 @@
             <div class="h-filter-pill">Расположен в центре</div>
         </div>
         <div class="os-content" style="background:#F2F3F5; padding:0;">
+            <div style="padding:16px 16px 0; font-size:14px; color:#212121; font-weight:600;">Мы нашли лучшие отели по соотношению цена/качества на ваши даты.</div>
             <div class="hotel-card-ref" onclick="openSuccessHotel()">
                 <div class="hcr-img-wrap"><img src="https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=600" class="hcr-img"><div class="hcr-heart"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></div></div>
                 <div class="hcr-content"><div class="hcr-info-line"><div class="hcr-title">Отель DEEP HOTEL</div><div class="hcr-rating">4,5 (41)</div></div><div class="hcr-info-line"><div class="hcr-dist">0.8 км до центра</div><div class="hcr-price">10 751 ₽ <span>/ ночь</span></div></div></div>
@@ -1260,13 +1263,37 @@
         else { textEl.innerHTML = 'Добавили поездку в ваши планы.<br><br>Тестирование успешно окончено. Большое спасибо!'; btnEl.innerText = 'Отлично'; }
         popup.classList.add('active');
     }
+    
+    function openAISheet() {
+        document.getElementById('sheet-ai-selection').classList.add('active');
+    }
+
     function closeSuccess(id) { document.getElementById(id).classList.remove('active'); }
     
-    // Toggle Map Pin Zoom
+    // Toggle Map Pin Zoom (With z-index fix)
     function toggleMapPin(pin) {
-        // Close others
+        // 1. Close others
         document.querySelectorAll('.map-pin').forEach(p => { if(p!==pin) p.classList.remove('active-zoom'); });
-        pin.classList.toggle('active-zoom');
+        
+        // 2. Toggle current
+        const alreadyActive = pin.classList.contains('active-zoom');
+        if (!alreadyActive) {
+            pin.classList.add('active-zoom');
+            // 3. Show Description
+            const title = pin.getAttribute('data-title');
+            const desc = pin.getAttribute('data-desc');
+            document.getElementById('mapPinTitle').innerText = title;
+            document.getElementById('mapPinDesc').innerText = desc;
+            document.getElementById('mapPinDescBar').classList.add('active');
+        } else {
+             pin.classList.remove('active-zoom');
+             document.getElementById('mapPinDescBar').classList.remove('active');
+        }
+    }
+    
+    function closePinDesc() {
+        document.querySelectorAll('.map-pin').forEach(p => p.classList.remove('active-zoom'));
+        document.getElementById('mapPinDescBar').classList.remove('active');
     }
 
 </script>
